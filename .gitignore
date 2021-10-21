@@ -1,0 +1,7 @@
+/build
+/.vscode
+/deps/googletest/build
+/deps/jsoncpp/build
+/deps/libevent/build
+/miniob
+/observer.log*
