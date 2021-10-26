@@ -718,3 +718,42 @@ RC Table::sync() {
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
 }
+
+RC Table::drop(const char *path, const char *name, const char *base_dir) {
+  if (nullptr == name || common::is_blank(name)) {
+    LOG_WARN("Name cannot be empty");
+    return RC::INVALID_ARGUMENT;
+  }
+  LOG_INFO("Begin to drop table %s:%s", base_dir, name);
+
+  RC rc = RC::SUCCESS;
+  std::string data_file = std::string(base_dir) + "/" + name + TABLE_DATA_SUFFIX;
+  data_buffer_pool_ = theGlobalDiskBufferPool();
+  rc = data_buffer_pool_->drop_file(data_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop disk buffer pool of data file. file name=%s", data_file.c_str());
+    return rc;
+  }
+  rc = data_buffer_pool_->drop_file(path);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop disk buffer pool of metadata file. file name=%s", path);
+    return rc;
+  }
+
+  if(remove(path) == 0 ) {
+    LOG_INFO("Remove meta_file %s success", path);
+  }
+  else {
+    LOG_INFO("Remove meta_file %s failed", path);
+  }
+  
+  if(remove(data_file.c_str()) == 0 ) {
+    LOG_INFO("Remove data_file %s success", path);
+  }
+  else {
+    LOG_INFO("Remove data_file %s failed", path);
+  }
+
+  
+  return rc;
+}

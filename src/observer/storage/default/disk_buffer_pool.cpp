@@ -572,3 +572,33 @@ RC DiskBufferPool::load_page(PageNum page_num, BPFileHandle *file_handle, Frame 
   }
   return RC::SUCCESS;
 }
+
+RC DiskBufferPool::drop_file(const char *file_name) {
+  int fd, i;
+  int file_id;
+  bool has_file = false;
+  BPFileHandle *file_handle = nullptr;
+  // This part isn't gentle, the better method is using LRU queue.
+  for (i = 0; i < MAX_OPEN_FILE; i++) {
+    if (open_list_[i]) {
+      if (!strcmp(open_list_[i]->file_name, file_name)) {
+        file_id = i;
+        has_file = true;
+        file_handle = open_list_[i];
+        break;
+      }
+    }
+  }
+  if (has_file == false) {
+    LOG_INFO("%s hasn't been opened.", file_name);
+    return RC::SUCCESS;
+  }
+  if (close(file_handle->file_desc) < 0) {
+    LOG_ERROR("Failed to drop fileId:%d, fileName:%s, error:%s", file_id, file_handle->file_name, strerror(errno));
+    return RC::IOERR_CLOSE;
+  }
+  open_list_[file_id] = nullptr;
+  delete (file_handle);
+  LOG_INFO("Successfully drop file %d:%s.", file_id, file_handle->file_name);
+  return RC::SUCCESS;
+}

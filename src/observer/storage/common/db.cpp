@@ -135,3 +135,22 @@ RC Db::sync() {
   LOG_INFO("Sync db over. db=%s", name_.c_str());
   return rc;
 }
+
+RC Db::drop_table(const char *table_name) {
+  RC rc = RC::SUCCESS;
+  // check table_name
+  if (opened_tables_.count(table_name) == 0) {
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  std::string table_file_path = table_meta_file(path_.c_str(), table_name); // 文件路径可以移到Table模块
+  Table *table = new Table();
+  rc = table->drop(table_file_path.c_str(), table_name, path_.c_str());
+  if (rc != RC::SUCCESS) {
+    delete table;
+    return rc;
+  }
+
+  opened_tables_.erase(table_name);
+  LOG_INFO("Drop table success. table name=%s", table_name);
+  return rc;
+}

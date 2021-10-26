@@ -128,6 +128,11 @@ public:
   RC open_file(const char *file_name, int *file_id);
 
   /**
+  * 删除file_name文件对应的内存结构，删除表时使用
+  */
+  RC drop_file(const char *file_name);
+
+  /**
    * 关闭fileID对应的分页文件
    */
   RC close_file(int file_id);

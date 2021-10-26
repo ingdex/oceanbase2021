@@ -244,6 +244,16 @@ void DefaultStorageStage::handle_event(StageEvent *event) {
       snprintf(response, sizeof(response), "%s", result.c_str());
     }
     break;
+  case SCF_DROP_TABLE: {
+      /*
+        从文件导入数据，如果做性能测试，需要保持这些代码可以正常工作
+        load data infile `your/file/path` into table `table-name`;
+       */
+      const DropTable &drop_table = sql->sstr.drop_table;
+      rc = handler_->drop_table(current_db, drop_table.relation_name);
+      snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
+    }
+    break;
   default:
       snprintf(response, sizeof(response), "Unsupported sql: %d\n", sql->flag);
       break;
