@@ -178,8 +178,23 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
   if (nullptr == table) {
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-
-  return table->update_record(trx, attribute_name, value, condition_num, conditions, updated_count);
+  CompositeConditionFilter condition_filter;
+  RC rc = condition_filter.init(*table, conditions, condition_num);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  ConDesc update_desc; // 更新的数据
+  const TableMeta &table_meta = table->table_meta();
+  const FieldMeta *field_update = table_meta.field(attribute_name);
+  if (nullptr == field_update) {
+      LOG_WARN("No such field in condition. %s.%s", table->name(), attribute_name);
+      return RC::SCHEMA_FIELD_MISSING;
+  }
+  update_desc.is_attr = true;
+  update_desc.attr_length = field_update->len();
+  update_desc.attr_offset = field_update->offset();
+  update_desc.value = value->data;
+  return table->update_record(trx, &condition_filter, &update_desc, updated_count);
 }
 
 Db *DefaultHandler::find_db(const char *dbname) const {

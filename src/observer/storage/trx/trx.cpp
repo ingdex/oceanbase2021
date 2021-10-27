@@ -72,6 +72,7 @@ RC Trx::delete_record(Table *table, Record *record) {
   start_if_not_started();
   Operation *old_oper = find_operation(table, record->rid);
   if (old_oper != nullptr) {
+    // 可能有bug，如果上一次操作为update，这里就会报错
     if (old_oper->type() == Operation::Type::INSERT) {
       delete_operation(table, record->rid);
       return RC::SUCCESS;
@@ -117,6 +118,7 @@ Operation *Trx::find_operation(Table *table, const RID &rid) {
 
 void Trx::insert_operation(Table *table, Operation::Type type, const RID &rid) {
   OperationSet & table_operations = operations_[table];
+  // bug：如果没及时提交，可能update失败，数据仍然是上次update的数据
   table_operations.emplace(type, rid);
 }
 
@@ -157,6 +159,15 @@ RC Trx::commit() {
           if (rc != RC::SUCCESS) {
             // handle rc
             LOG_ERROR("Failed to commit delete operation. rid=%d.%d, rc=%d:%s",
+                      rid.page_num, rid.slot_num, rc, strrc(rc));
+          }
+        }
+        break;
+        case Operation::Type::UPDATE: {
+          rc = table->commit_update(this, rid);
+          if (rc != RC::SUCCESS) {
+            // handle rc
+            LOG_ERROR("Failed to commit update operation. rid=%d.%d, rc=%d:%s",
                       rid.page_num, rid.slot_num, rc, strrc(rc));
           }
         }
@@ -248,4 +259,21 @@ void Trx::start_if_not_started() {
   if (trx_id_ == 0) {
     trx_id_ = next_trx_id();
   }
+}
+
+RC Trx::update_record(Table *table, Record *record) {
+  RC rc = RC::SUCCESS;
+  start_if_not_started();
+  // Operation *old_oper = find_operation(table, record->rid);
+  // if (old_oper != nullptr) {
+  //   if (old_oper->type() == Operation::Type::INSERT) {
+  //     delete_operation(table, record->rid);
+  //     return RC::SUCCESS;
+  //   } else {
+  //     return RC::GENERIC_ERROR;
+  //   }
+  // }
+  set_record_trx_id(table, *record, trx_id_, true);
+  insert_operation(table, Operation::Type::UPDATE, record->rid);
+  return rc;
 }

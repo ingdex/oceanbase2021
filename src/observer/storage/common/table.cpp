@@ -519,8 +519,59 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   return rc;
 }
 
-RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num, const Condition conditions[], int *updated_count) {
-  return RC::GENERIC_ERROR;
+
+class RecordUpdater {
+public:
+  RecordUpdater(Table &table, Trx *trx, const ConDesc *update_desc) : table_(table), trx_(trx), update_desc_(update_desc) {
+  }
+
+  // RC update_record(Trx *trx, ConditionFilter *filter, const char *attribute_name, const Value *value, int condition_num, const Condition *conditions, int *updated_count) {
+  //   RC rc = RC::SUCCESS;
+  //   rc = table_.update_record(trx, filter, attribute_name, value, condition_num, conditions, updated_count);
+  //   if (rc == RC::SUCCESS) {
+  //     updated_count_++;
+  //   }
+  //   return rc;
+  // }
+
+  RC update_record(Record *record) {
+    RC rc = RC::SUCCESS;
+    // 更新record内容
+    int attr_length = update_desc_->attr_length;
+    int attr_offset = update_desc_->attr_offset;
+    memcpy(record->data + attr_offset, update_desc_->value, attr_length);
+    rc = table_.update_record(trx_, record);
+    if (rc == RC::SUCCESS) {
+      updated_count_++;
+    }
+    return rc;
+  }
+
+  int updated_count() const {
+    return updated_count_;
+  }
+
+private:
+  Table & table_;
+  Trx *trx_;
+  const ConDesc *update_desc_;
+  int updated_count_ = 0;
+};
+
+static RC record_reader_update_adapter(Record *record, void *context) {
+  RecordUpdater &record_updater = *(RecordUpdater *)context;
+  return record_updater.update_record(record);
+}
+
+RC Table::update_record(Trx *trx, ConditionFilter *filter, const ConDesc *update_desc, int *updated_count) {
+  // return RC::GENERIC_ERROR;
+  RecordUpdater updater(*this, trx, update_desc);
+  
+  RC rc = scan_record(trx, filter, -1, &updater, record_reader_update_adapter);
+  if (updated_count != nullptr) {
+    *updated_count = updater.updated_count();
+  }
+  return rc;
 }
 
 class RecordDeleter {
@@ -591,6 +642,27 @@ RC Table::commit_delete(Trx *trx, const RID &rid) {
   }
 
   rc = record_handler_->delete_record(&rid);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  return rc;
+}
+
+RC Table::commit_update(Trx *trx, const RID &rid) {
+  RC rc = RC::SUCCESS;
+  Record record;
+  rc = record_handler_->get_record(&rid, &record);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  rc = update_entry_of_indexes(record.data, record.rid, false);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to delete indexes of record(rid=%d.%d). rc=%d:%s",
+              rid.page_num, rid.slot_num, rc, strrc(rc));// panic?
+  }
+
+  rc = record_handler_->update_record(&record);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -755,5 +827,34 @@ RC Table::drop(const char *path, const char *name, const char *base_dir) {
   }
 
   
+  return rc;
+}
+
+RC Table::update_record(Trx *trx, Record *record) {
+  RC rc = RC::SUCCESS;
+  if (trx != nullptr) {
+    rc = trx->update_record(this, record);
+  } else {
+    rc = update_entry_of_indexes(record->data, record->rid, false);// 重复代码 refer to commit_delete
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
+                record->rid.page_num, record->rid.slot_num, rc, strrc(rc));
+    } else {
+      rc = record_handler_->update_record(record);
+    }
+  }
+  return rc;
+}
+
+RC Table::update_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists) {
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    rc = index->update_entry(record, &rid);
+    if (rc != RC::SUCCESS) {
+      if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
+        break;
+      }
+    }
+  }
   return rc;
 }
