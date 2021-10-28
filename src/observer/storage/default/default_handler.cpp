@@ -190,6 +190,10 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       LOG_WARN("No such field in condition. %s.%s", table->name(), attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
   }
+  if (field_update->type() != value->type) {
+    LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
   update_desc.is_attr = true;
   update_desc.attr_length = field_update->len();
   update_desc.attr_offset = field_update->offset();
