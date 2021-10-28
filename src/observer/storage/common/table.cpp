@@ -27,6 +27,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/index.h"
 #include "storage/common/bplus_tree_index.h"
 #include "storage/trx/trx.h"
+#include "common/time/datetime.h"
+#include <string>
 
 Table::Table() : 
     data_buffer_pool_(nullptr),
@@ -190,7 +192,8 @@ RC Table::insert_record(Trx *trx, Record *record) {
   if (trx != nullptr) {
     trx->init_trx_info(this, *record);
   }
-  rc = record_handler_->insert_record(record->data, table_meta_.record_size(), &record->rid);
+  // rc = record_handler_->insert_record(record->data, table_meta_.record_size(), &record->rid);
+  rc = record_handler_->insert_record(record->data, 18, &record->rid);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
     return rc;
@@ -260,17 +263,71 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
     return RC::SCHEMA_FIELD_MISSING;
   }
-
+  int y,m,d;
+  const char *y_str,*m_str,*d_str;
   const int normal_field_start_index = table_meta_.sys_field_num();
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     if (field->type() != value.type) {
-      LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
-        field->name(), field->type(), value.type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      if(field->type()==4 && value.type==1){
+
+        // 读取data数据void*转换
+        char data_str[50];
+        memcpy(data_str, value.data, 10);
+
+        // 字符串分割 
+        std::string str = data_str;
+        size_t pos = str.find('-');
+        y_str = str.substr(0,pos).c_str();
+        y = atoi(y_str);
+        str = str.substr(pos+1);
+        pos = str.find('-');
+        m_str = str.substr(0,pos).c_str();
+        m = atoi(m_str);
+        str = str.substr(pos+1);
+        pos = str.find('-');
+        d_str = str.substr(0,pos).c_str();
+        d = atoi(d_str);
+        std::cout<<y<<' '<<m<<' '<<d<<std::endl;
+
+        // 日期合法性判断 
+        int a[12]={31,28,31,30,31,30,31,31,30,31,30,31};
+        if((y%4==0&&y%100!=0)||(y%400==0)){//如果是闰年
+            a[1] = 29;
+            if(0<d&& d<=a[m-1] && m>0 && m<=12)
+                if(y<1970||(y>=2038&&m>=2)){
+                  // 越过区间
+                  return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+                }
+                else{
+                  // 正常返回
+                }
+            else
+                return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+        else{
+            if(0<d&& d<=a[m-1] && 0<m && 12>=m)
+                if(y<1970||(y>=2038&&m>=2)){
+                  // 越过区间
+                  return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+                }
+                else{
+                  // 正常返回
+                }
+            else
+                return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+      }
+      else{
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+          field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
     }
   }
+    // common::Date *date = new common::Date(y,m,d);
+  // Xing 待修改
 
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
@@ -279,7 +336,27 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    memcpy(record + field->offset(), value.data, field->len());
+        if(field->type() == 4 && value.type == 1){
+      char *test = new char [record_size];
+      strcpy(test, y_str);
+      test[4]='-';
+      if(strlen(m_str) == 1){
+          test[5]='0';
+      }
+      strcat(test, m_str);
+      if(strlen(d_str) == 1){
+          test[8]='0';
+      }
+      test[7]='-';
+      strcat(test, d_str);
+      memcpy(record + field->offset(), test, 10); 
+      // for(int i=0;i<20;i++){
+      //   std::cout<<i<<' '<<record[i]<<std::endl;
+      // } 
+    }
+    else{
+      memcpy(record + field->offset(), value.data, field->len());
+    }
   }
 
   record_out = record;

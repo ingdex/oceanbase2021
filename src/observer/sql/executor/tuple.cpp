@@ -228,10 +228,16 @@ void TupleRecordConverter::add_record(const char *record) {
         float value = *(float *)(record + field_meta->offset());
         tuple.add(value);
       }
-        break;
+      break;
       case CHARS: {
         const char *s = record + field_meta->offset();  // 现在当做Cstring来处理
         tuple.add(s, strlen(s));
+      }
+      break;
+      case DATES: {
+        // Xing 待修改
+        const char *s = record + field_meta->offset();  
+        tuple.add(s, 10);// select的读取
       }
       break;
       default: {

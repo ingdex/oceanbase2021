@@ -341,6 +341,11 @@ RC insert_record_from_file(Table *table, std::vector<std::string> &file_values,
         }
       }
       break;
+      case DATES: {
+        // Xing 待修改 从文件中导入数据时使用 暂时用不到
+        value_init_string(&record_values[i], file_value.c_str());
+      }
+      break;
       case CHARS: {
         value_init_string(&record_values[i], file_value.c_str());
       }
