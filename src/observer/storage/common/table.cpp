@@ -303,8 +303,9 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
                 else{
                   // 正常返回
                 }
-            else
-                return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            else{
+              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            }
         }
         else{
             if(0<d&& d<=a[m-1] && 0<m && 12>=m)
@@ -315,8 +316,9 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
                 else{
                   // 正常返回
                 }
-            else
-                return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            else{
+              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            }
         }
       }
       else{
@@ -344,15 +346,12 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
           test[5]='0';
       }
       strcat(test, m_str);
+      test[7]='-';
       if(strlen(d_str) == 1){
           test[8]='0';
       }
-      test[7]='-';
       strcat(test, d_str);
       memcpy(record + field->offset(), test, 10); 
-      // for(int i=0;i<20;i++){
-      //   std::cout<<i<<' '<<record[i]<<std::endl;
-      // } 
     }
     else{
       memcpy(record + field->offset(), value.data, field->len());
