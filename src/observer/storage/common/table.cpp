@@ -265,12 +265,13 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   }
   int y,m,d;
   const char *y_str,*m_str,*d_str;
+  int a[12]={31,28,31,30,31,30,31,31,30,31,30,31};
   const int normal_field_start_index = table_meta_.sys_field_num();
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     if (field->type() != value.type) {
-      if(field->type()==4 && value.type==1){
+      if(field->type()==DATES && value.type==CHARS){
 
         // 读取data数据void*转换
         char data_str[50];
@@ -292,7 +293,7 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
         std::cout<<y<<' '<<m<<' '<<d<<std::endl;
 
         // 日期合法性判断 
-        int a[12]={31,28,31,30,31,30,31,31,30,31,30,31};
+        
         if((y%4==0&&y%100!=0)||(y%400==0)){//如果是闰年
             a[1] = 29;
             if(0<d&& d<=a[m-1] && m>0 && m<=12)
