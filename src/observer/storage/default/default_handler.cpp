@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/bplus_tree.h"
 #include "storage/common/table.h"
 #include "storage/common/condition_filter.h"
+#include "storage/common/mydate.h"
 
 DefaultHandler &DefaultHandler::get_default() {
   static DefaultHandler handler;
@@ -191,13 +192,22 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       return RC::SCHEMA_FIELD_MISSING;
   }
   if (field_update->type() != value->type) {
-    LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    if (field_update->type() != DATES || value->type != CHARS) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
   update_desc.is_attr = true;
   update_desc.attr_length = field_update->len();
   update_desc.attr_offset = field_update->offset();
-  update_desc.value = value->data;
+  if (field_update->type() == DATES) {
+    MyDate date((char *)value->data);
+    int date_int = date.toInt();
+    update_desc.value = (void *)&date_int;
+  } else {
+    update_desc.value = value->data;
+  }
+  
   return table->update_record(trx, &condition_filter, &update_desc, updated_count);
 }
 

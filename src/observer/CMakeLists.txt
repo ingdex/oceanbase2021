@@ -20,7 +20,7 @@ FOREACH (F ${ALL_SRC})
         SET(LIB_SRC ${LIB_SRC} ${F})
     ENDIF()
 
-    MESSAGE("Use " ${F})
+    MESSAGE("Use " $}{F)
 
 ENDFOREACH (F)
 

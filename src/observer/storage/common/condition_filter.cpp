@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "record_manager.h"
 #include "common/log/log.h"
 #include "storage/common/table.h"
+#include "storage/common/mydate.h"
 
 using namespace common;
 
@@ -117,7 +118,9 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   // NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
   // 但是选手们还是要实现。这个功能在预选赛中会出现
   if (type_left != type_right) {
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    if (type_left != DATES || type_right != CHARS) {
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
 
   return init(left, right, type_left, condition.comp);
@@ -148,7 +151,13 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     } break;
     case DATES: { 
       // Xing 待修改
-      cmp_result = strcmp(left_value, right_value);
+      // cmp_result = strcmp(left_value, right_value);
+      // 没有考虑大小端问题
+      // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
+      int left = *(int *)left_value;
+      MyDate date(right_value);
+      int right = date.toInt();
+      cmp_result = left - right;
     } break;
     case INTS: {
       // 没有考虑大小端问题

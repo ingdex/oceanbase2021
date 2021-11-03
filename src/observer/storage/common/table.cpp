@@ -29,6 +29,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "common/time/datetime.h"
 #include <string>
+#include "mydate.h"
+
 
 Table::Table() : 
     data_buffer_pool_(nullptr),
@@ -192,8 +194,8 @@ RC Table::insert_record(Trx *trx, Record *record) {
   if (trx != nullptr) {
     trx->init_trx_info(this, *record);
   }
-  // rc = record_handler_->insert_record(record->data, table_meta_.record_size(), &record->rid);
-  rc = record_handler_->insert_record(record->data, 18, &record->rid);
+  rc = record_handler_->insert_record(record->data, table_meta_.record_size(), &record->rid);
+  // rc = record_handler_->insert_record(record->data, 18, &record->rid);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
     return rc;
@@ -258,75 +260,83 @@ const TableMeta &Table::table_meta() const {
   return table_meta_;
 }
 
+// RC Table::date2int(const Value &value, int &date) {
+//   if (value.type != CHARS) {
+//     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+//   }
+//   int y,m,d;
+//   const char *y_str,*m_str,*d_str;
+//   int a[12]={31,28,31,30,31,30,31,31,30,31,30,31};
+//   // 读取data数据void*转换
+//   char data_str[16] = {0, };
+//   memcpy(data_str, value.data, 10);
+
+//   // 字符串分割
+//   std::string str = data_str;
+//   size_t pos = str.find('-');
+//   y_str = str.substr(0, pos).c_str();
+//   y = atoi(y_str);
+//   str = str.substr(pos + 1);
+//   pos = str.find('-');
+//   m_str = str.substr(0, pos).c_str();
+//   m = atoi(m_str);
+//   str = str.substr(pos + 1);
+//   pos = str.find('-');
+//   d_str = str.substr(0, pos).c_str();
+//   d = atoi(d_str);
+//   std::cout << y << ' ' << m << ' ' << d << std::endl;
+
+//   // 日期合法性判断
+
+//   if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))
+//   { //如果是闰年
+//     a[1] = 29;
+//     if (0 < d && d <= a[m - 1] && m > 0 && m <= 12) {
+//       if (y < 1970 || (y >= 2038 && m >= 2))
+//       {
+//         // 越过区间
+//         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+//       }
+//     }
+//     else
+//     {
+//       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+//     }
+//   }
+//   else
+//   {
+//     if (0 < d && d <= a[m - 1] && 0 < m && 12 >= m) {
+//       if (y < 1970 || (y >= 2038 && m >= 2))
+//       {
+//         // 越过区间
+//         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+//       }
+//     }
+//     else
+//     {
+//       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+//     }
+//   }
+//   date = d + m * 100 + y * 10000;
+//   return RC::SUCCESS;
+// }
+
 RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   // 检查字段类型是否一致
   if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
     return RC::SCHEMA_FIELD_MISSING;
   }
-  int y,m,d;
-  const char *y_str,*m_str,*d_str;
-  int a[12]={31,28,31,30,31,30,31,31,30,31,30,31};
   const int normal_field_start_index = table_meta_.sys_field_num();
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     if (field->type() != value.type) {
       if(field->type()==DATES && value.type==CHARS){
-
-        // 读取data数据void*转换
-        char data_str[50];
-        memcpy(data_str, value.data, 10);
-
-        // 字符串分割 
-        std::string str = data_str;
-        size_t pos = str.find('-');
-        y_str = str.substr(0,pos).c_str();
-        y = atoi(y_str);
-        str = str.substr(pos+1);
-        pos = str.find('-');
-        m_str = str.substr(0,pos).c_str();
-        m = atoi(m_str);
-        str = str.substr(pos+1);
-        pos = str.find('-');
-        d_str = str.substr(0,pos).c_str();
-        d = atoi(d_str);
-        std::cout<<y<<' '<<m<<' '<<d<<std::endl;
-
-        // 日期合法性判断 
-        
-        if((y%4==0&&y%100!=0)||(y%400==0)){//如果是闰年
-            a[1] = 29;
-            if(0<d&& d<=a[m-1] && m>0 && m<=12)
-                if(y<1970||(y>=2038&&m>=2)){
-                  // 越过区间
-                  return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-                }
-                else{
-                  // 正常返回
-                }
-            else{
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
-        }
-        else{
-            if(0<d&& d<=a[m-1] && 0<m && 12>=m)
-                if(y<1970||(y>=2038&&m>=2)){
-                  // 越过区间
-                  return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-                }
-                else{
-                  // 正常返回
-                }
-            else{
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
-        }
+        continue;
       }
-      else{
-        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
-          field->name(), field->type(), value.type);
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
+      LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
   }
     // common::Date *date = new common::Date(y,m,d);
@@ -339,20 +349,15 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-        if(field->type() == 4 && value.type == 1){
-      char *test = new char [record_size];
-      strcpy(test, y_str);
-      test[4]='-';
-      if(strlen(m_str) == 1){
-          test[5]='0';
+    if(field->type() == DATES){
+      // int date;
+      // RC rc = date2int(value, date);
+      MyDate date((char *)value.data);
+      int date_int = date.toInt();
+      if (date_int == -1) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      strcat(test, m_str);
-      test[7]='-';
-      if(strlen(d_str) == 1){
-          test[8]='0';
-      }
-      strcat(test, d_str);
-      memcpy(record + field->offset(), test, 10); 
+      memcpy(record + field->offset(), &date_int, field->len()); 
     }
     else{
       memcpy(record + field->offset(), value.data, field->len());

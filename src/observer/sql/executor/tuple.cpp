@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/tuple.h"
 #include "storage/common/table.h"
 #include "common/log/log.h"
+#include "storage/common/mydate.h"
 
 Tuple::Tuple(const Tuple &other) {
   LOG_PANIC("Copy constructor of tuple is not supported");
@@ -211,6 +212,19 @@ TupleRecordConverter::TupleRecordConverter(Table *table, TupleSet &tuple_set) :
       table_(table), tuple_set_(tuple_set){
 }
 
+// void TupleRecordConverter::int2date(int date, char *str) {
+//   int x;
+//   for (int i=9; i>=0; i--) {
+//     if (i == 7 || i == 4) {
+//       str[i] = '-';
+//       continue;
+//     }
+//     x = date % 10;
+//     date /= 10;
+//     str[i] = x + '0';
+//   }
+// }
+
 void TupleRecordConverter::add_record(const char *record) {
   const TupleSchema &schema = tuple_set_.schema();
   Tuple tuple;
@@ -236,8 +250,13 @@ void TupleRecordConverter::add_record(const char *record) {
       break;
       case DATES: {
         // Xing 待修改
-        const char *s = record + field_meta->offset();  
-        tuple.add(s, 10);// select的读取
+        int date_int = *(int*)(record + field_meta->offset());
+        // tuple.add(value);
+        // char date_str[11] = {0, };
+        // int2date(date, date_str);
+        MyDate date(date_int);
+        const char *date_cstr = date.toCStr();
+        tuple.add(date_cstr, strlen(date_cstr));
       }
       break;
       default: {
