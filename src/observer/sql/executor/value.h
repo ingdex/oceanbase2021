@@ -26,6 +26,7 @@ public:
   virtual ~TupleValue() = default;
 
   virtual void to_string(std::ostream &os) const = 0;
+  virtual std::string to_string() const = 0;
   virtual int compare(const TupleValue &other) const = 0;
 private:
 };
@@ -37,6 +38,10 @@ public:
 
   void to_string(std::ostream &os) const override {
     os << value_;
+  }
+
+  std::string to_string() const override {
+    return std::to_string(value_);
   }
 
   int compare(const TupleValue &other) const override {
@@ -55,6 +60,10 @@ public:
 
   void to_string(std::ostream &os) const override {
     os << value_;
+  }
+
+  std::string to_string() const override {
+    return std::to_string(value_);
   }
 
   int compare(const TupleValue &other) const override {
@@ -81,6 +90,10 @@ public:
 
   void to_string(std::ostream &os) const override {
     os << value_;
+  }
+
+  std::string to_string() const override {
+    return value_;
   }
 
   int compare(const TupleValue &other) const override {

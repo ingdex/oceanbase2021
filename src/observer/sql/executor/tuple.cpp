@@ -109,6 +109,21 @@ int TupleSchema::index_of_field(const char *table_name, const char *field_name) 
   return -1;
 }
 
+std::string TupleSchema::to_string(bool printTableName) const {
+  std::string re;
+  // std::string tableName = printTableName? 
+  for (int i=0; i<fields_.size(); i++) {
+    const TupleField &tupleField = fields_[i];
+    std::string item = printTableName ? tupleField.table_name_str() + "." : "";
+    item += tupleField.field_name_str();
+    if (i != fields_.size() - 1) {
+      item += " | ";
+    }
+    re += item;
+  }
+  return re;
+}
+
 void TupleSchema::print(std::ostream &os) const {
   if (fields_.empty()) {
     os << "No schema";
@@ -185,6 +200,49 @@ void TupleSet::print(std::ostream &os) const {
 
 void TupleSet::set_schema(const TupleSchema &schema) {
   schema_ = schema;
+}
+
+std::string TupleSet::to_string(int index) const {
+  std::string re;
+  const Tuple &tuple = tuples_[index];
+  if (tuple.size() == 0) {
+    LOG_WARN("Got empty tuple");
+    return re;
+  }
+  for (size_t i=0; i<tuple.size()-1; i++) {
+    re += tuple.get(i).to_string() + " | ";
+  }
+  re += tuple.get(tuple.size()-1).to_string();
+  return re;
+}
+std::string TupleSet::to_string(char *table_name) const {
+  std::string re;
+  if (schema_.fields().empty()) {
+    LOG_WARN("Got empty schema");
+    return re;
+  }
+  
+  for (const Tuple &item : tuples_) {
+    const std::vector<std::shared_ptr<TupleValue>> &values = item.values();
+    for (std::vector<std::shared_ptr<TupleValue>>::const_iterator iter = values.begin(), end = --values.end();
+          iter != end; ++iter) {
+      re += (*iter)->to_string();
+      re += " | ";
+    }
+    re += values.back()->to_string() + "\n";
+    // re += std::endl;
+  }
+  return re;
+}
+
+std::string TupleSet::header_to_string(bool printTableName) const {
+  std::string re;
+  if (schema_.fields().empty()) {
+    LOG_WARN("Got empty schema");
+    return re;
+  }
+  re = schema_.to_string(printTableName);
+  return re;
 }
 
 const TupleSchema &TupleSet::get_schema() const {

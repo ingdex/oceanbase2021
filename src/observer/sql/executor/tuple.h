@@ -77,6 +77,13 @@ public:
     return field_name_.c_str();
   }
 
+  const std::string table_name_str() const {
+    return table_name_;
+  }
+  const std::string field_name_str() const {
+    return field_name_;
+  }
+
   std::string to_string() const;
 private:
   AttrType  type_;
@@ -108,6 +115,7 @@ public:
   }
 
   void print(std::ostream &os) const;
+  std::string to_string(bool printTableName) const;
 public:
   static void from_table(const Table *table, TupleSchema &schema);
 private:
@@ -138,6 +146,10 @@ public:
   const std::vector<Tuple> &tuples() const;
 
   void print(std::ostream &os) const;
+  std::string to_string(int index) const;
+  std::string to_string(char *table_name) const;
+  std::string header_to_string(bool printTableName) const;
+  
 public:
   const TupleSchema &schema() const {
     return schema_;
