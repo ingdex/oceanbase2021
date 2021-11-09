@@ -52,6 +52,10 @@ public:
     return *values_[index];
   }
 
+  // TupleValue &get_unsafe(int index) const {
+  //   return *values_[index];
+  // }
+
   const std::shared_ptr<TupleValue> &get_pointer(int index) const {
     return values_[index];
   }
@@ -137,6 +141,7 @@ public:
   const TupleSchema &get_schema() const;
 
   void add(Tuple && tuple);
+  void add_(const Tuple &tuple);
 
   void clear();
 

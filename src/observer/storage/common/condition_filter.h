@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "rc.h"
 #include "sql/parser/parse.h"
+#include "sql/executor/tuple.h"
 
 struct Record;
 class Table;
@@ -26,6 +27,15 @@ struct ConDesc {
   int    attr_length; // 如果是属性，表示属性值长度
   int    attr_offset; // 如果是属性，表示在记录中的偏移量
   void * value;       // 如果是值类型，这里记录值的数据
+  char * attr_name;
+  char * table_name;
+  ConDesc()
+  {
+  };
+  ConDesc(bool is_attr, int attr_length, int attr_offset, void *value):is_attr(is_attr), attr_length(attr_length), attr_offset(attr_offset), value(value)
+  {
+  };
+  
 };
 
 class ConditionFilter {
@@ -38,6 +48,7 @@ public:
    * @return true means match condition, false means failed to match.
    */
   virtual bool filter(const Record &rec) const = 0;
+  virtual bool filter(const TupleSchema &schema_, const Tuple &tuple) const = 0;
 };
 
 class DefaultConditionFilter : public ConditionFilter {
@@ -49,6 +60,7 @@ public:
   RC init(Table &table, const Condition &condition);
 
   virtual bool filter(const Record &rec) const;
+  virtual bool filter(const TupleSchema &schema_, const Tuple &tuple) const;
 
 public:
   const ConDesc &left() const {
@@ -78,6 +90,7 @@ public:
   RC init(const ConditionFilter *filters[], int filter_num);
   RC init(Table &table, const Condition *conditions, int condition_num);
   virtual bool filter(const Record &rec) const;
+  virtual bool filter(const TupleSchema &schema_, const Tuple &tuple) const;
 
 public:
   int filter_num() const {

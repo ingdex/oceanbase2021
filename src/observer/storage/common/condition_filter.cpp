@@ -202,6 +202,41 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   return cmp_result;  // should not go here
 }
 
+bool DefaultConditionFilter::filter(const TupleSchema &schema_, const Tuple &tuple) const
+{
+  std::shared_ptr<TupleValue> left_value = nullptr;
+  std::shared_ptr<TupleValue> right_value = nullptr;
+
+  int left_index = schema_.index_of_field(left_.table_name, left_.attr_name);
+  int right_index = schema_.index_of_field(right_.table_name, right_.attr_name);
+  left_value = tuple.get_pointer(left_index);
+  right_value = tuple.get_pointer(right_index);
+
+  int cmp_result = 0;
+  cmp_result = left_value->compare(*right_value);
+
+  switch (comp_op_) {
+    case EQUAL_TO:
+      return 0 == cmp_result;
+    case LESS_EQUAL:
+      return cmp_result <= 0;
+    case NOT_EQUAL:
+      return cmp_result != 0;
+    case LESS_THAN:
+      return cmp_result < 0;
+    case GREAT_EQUAL:
+      return cmp_result >= 0;
+    case GREAT_THAN:
+      return cmp_result > 0;
+
+    default:
+      break;
+  }
+
+  LOG_PANIC("Never should print this.");
+  return cmp_result;  // should not go here
+}
+
 CompositeConditionFilter::~CompositeConditionFilter()
 {
   if (memory_owner_) {
@@ -255,6 +290,16 @@ bool CompositeConditionFilter::filter(const Record &rec) const
 {
   for (int i = 0; i < filter_num_; i++) {
     if (!filters_[i]->filter(rec)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool CompositeConditionFilter::filter(const TupleSchema &schema_, const Tuple &tuple) const 
+{
+  for (int i = 0; i < filter_num_; i++) {
+    if (!filters_[i]->filter(schema_, tuple)) {
       return false;
     }
   }

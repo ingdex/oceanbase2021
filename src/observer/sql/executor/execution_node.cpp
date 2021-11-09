@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/execution_node.h"
 #include "storage/common/table.h"
 #include "common/log/log.h"
+#include <iostream>
 
 SelectExeNode::SelectExeNode() : table_(nullptr) {
 }
@@ -47,4 +48,47 @@ RC SelectExeNode::execute(TupleSet &tuple_set) {
   tuple_set.set_schema(tuple_schema_);
   TupleRecordConverter converter(table_, tuple_set);
   return table_->scan_record(trx_, &condition_filter, -1, (void *)&converter, record_reader);
+}
+
+
+JoinSelectExeNode::JoinSelectExeNode() : tuple_set_(nullptr) {
+}
+
+JoinSelectExeNode::~JoinSelectExeNode() {
+  for (DefaultConditionFilter * &filter : condition_filters_) {
+    delete filter;
+  }
+  condition_filters_.clear();
+}
+
+RC
+JoinSelectExeNode::init(Trx *trx, TupleSet *tuple_set, std::vector<DefaultConditionFilter *> &&condition_filters) {
+  trx_ = trx;
+  tuple_set_ = tuple_set;
+  condition_filters_ = std::move(condition_filters);
+  return RC::SUCCESS;
+}
+
+// void record_reader(const char *data, void *context) {
+//   TupleRecordConverter *converter = (TupleRecordConverter *)context;
+//   converter->add_record(data);
+// }
+
+RC JoinSelectExeNode::execute(TupleSet &tuple_set) {
+  CompositeConditionFilter condition_filter;
+  condition_filter.init((const ConditionFilter **)condition_filters_.data(), condition_filters_.size());
+  
+  tuple_set.clear();
+  tuple_set.set_schema(tuple_set_->get_schema());
+  for (size_t i=0; i<tuple_set_->size(); i++) {
+    const Tuple &tuple = tuple_set_->get(i);
+    if (condition_filter.filter(tuple_set_->get_schema(), tuple)) {
+      Tuple tuple_tmp;
+      for (size_t j=0; j<tuple.size(); j++) {
+        tuple_tmp.add(tuple.get_pointer(j));
+      }
+      tuple_set.add(std::move(tuple_tmp));
+    }
+  }
+  return RC::SUCCESS;
 }

@@ -37,6 +37,7 @@ See the Mulan PSL v2 for more details. */
 using namespace common;
 
 RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, const char *table_name, SelectExeNode &select_node);
+RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *db, TupleSet *join_tuple_set, JoinSelectExeNode &join_select_node);
 
 //! Constructor
 ExecuteStage::ExecuteStage(const char *tag) : Stage(tag) {}
@@ -295,6 +296,7 @@ void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, std::string str
   }
 }
 
+
 void dfs(std::vector<TupleSet> &tuple_sets, std::vector<std::string> &result) {
   // bool flag = true;
   // if (flag) {
@@ -303,12 +305,141 @@ void dfs(std::vector<TupleSet> &tuple_sets, std::vector<std::string> &result) {
   dfs_helper(tuple_sets, 0, "", result);
 }
 
+
+void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, Tuple &tuple, TupleSet &join_tuple_set) {
+  if (depth == tuple_sets.size()) {
+    join_tuple_set.add(std::move(tuple));
+    return;
+  }
+  TupleSet &tuple_set = tuple_sets[depth];
+  for (size_t i=0; i<tuple_set.size(); i++) {
+    Tuple tuple_(std::move(tuple));
+    const Tuple &tuple_tmp = tuple_set.get(i);
+    for (size_t j=0; j<tuple_tmp.size(); j++) {
+      tuple_.add(tuple_tmp.get_pointer(j));
+    }
+    dfs_helper(tuple_sets, depth+1, tuple_, join_tuple_set);
+  }
+}
+
+void dfs(std::vector<TupleSet> &tuple_sets, TupleSet &join_tuple_set) {
+  // bool flag = true;
+  // if (flag) {
+  //   result.push_back(tuple)
+  // }
+  // std::vector<Tuple> tuple_set;
+  TupleSchema schema;
+  for (TupleSet &tuple_set: tuple_sets) {
+    schema.append(tuple_set.get_schema());
+  }
+  join_tuple_set.set_schema(schema);
+  Tuple tuple;
+  dfs_helper(tuple_sets, 0, tuple, join_tuple_set);
+}
+
+void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, std::vector<std::shared_ptr<TupleValue>> &values, TupleSet &join_tuple_set) {
+  if (depth == tuple_sets.size()) {
+    Tuple tuple;
+    for (std::shared_ptr<TupleValue> tuple_value: values) {
+      tuple.add(tuple_value);
+    }
+    join_tuple_set.add(std::move(tuple));
+    return;
+  }
+  TupleSet &tuple_set = tuple_sets[depth];
+  for (size_t i=0; i<tuple_set.size(); i++) {
+    // Tuple tuple_(std::move(tuple));
+    const Tuple &tuple_tmp = tuple_set.get(i);
+    for (size_t j=0; j<tuple_tmp.size(); j++) {
+      // tuple_.add(tuple_tmp.get_pointer(j));
+      values.push_back(tuple_tmp.get_pointer(j));
+    }
+    dfs_helper(tuple_sets, depth+1, values, join_tuple_set);
+    for (size_t j=0; j<tuple_tmp.size(); j++) {
+      // tuple_.add(tuple_tmp.get_pointer(j));
+      values.pop_back();
+    }
+  }
+}
+
+void dfs2(std::vector<TupleSet> &tuple_sets, TupleSet &join_tuple_set) {
+  // bool flag = true;
+  // if (flag) {
+  //   result.push_back(tuple)
+  // }
+  // std::vector<Tuple> tuple_set;
+  TupleSchema schema;
+  for (TupleSet &tuple_set: tuple_sets) {
+    schema.append(tuple_set.get_schema());
+  }
+  join_tuple_set.set_schema(schema);
+  // Tuple tuple;
+  std::vector<std::shared_ptr<TupleValue>>  values;
+  dfs_helper(tuple_sets, 0, values, join_tuple_set);
+}
+
 std::string create_header(std::vector<TupleSet> tuple_sets, bool printTableName) {
   std::string header;
 
   for (const TupleSet &tuple_set: tuple_sets) {
     header += tuple_set.header_to_string(printTableName);
   }
+}
+
+RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, TupleSet &re_tuple_set) {
+  re_tuple_set.clear();
+  TupleSchema schema;
+  const TupleSchema &schema_all = tuple_set.get_schema();
+  std::map<std::string, bool> skip_flag;
+  std::vector <size_t> indexs; // 需要取出的属性下标集合
+  for (int i = selects.attr_num - 1; i >= 0; i--) {
+    const RelAttr &attr = selects.attributes[i];
+    if (attr.relation_name == nullptr) {
+      if (0 != strcmp(attr.attribute_name, "*")) {
+        return RC::GENERIC_ERROR;
+      }
+      schema.clear();
+      schema = tuple_set.get_schema();
+      for (size_t i=0; i<schema.fields().size(); i++) {
+        indexs.push_back(i);
+      }
+      // re_tuple_set.set_schema(tuple_set.get_schema());
+      break;
+    }
+    Table * table = DefaultHandler::get_default().find_table(db, attr.relation_name);
+    auto search = skip_flag.find(attr.relation_name);
+    if (search != skip_flag.end() && search->second == true) {
+      continue;
+    }
+    if (strcmp(attr.attribute_name, "*") == 0) {
+      skip_flag[attr.relation_name] = true;
+      const TableMeta &table_meta = table->table_meta();
+      for (int i=0; i<table_meta.field_num()-table_meta.sys_field_num(); i++) {
+        const FieldMeta * field_meta = table_meta.field(i);
+        indexs.push_back(schema_all.index_of_field(table->name(), field_meta->name()));
+        schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+      }
+    } else {
+      const FieldMeta *field_meta = table->table_meta().field(attr.attribute_name);
+      if (nullptr == field_meta) {
+        LOG_WARN("No such field. %s.%s", table->name(), attr.attribute_name);
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+      indexs.push_back(schema_all.index_of_field(attr.relation_name, attr.attribute_name));
+      schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+    }
+    
+  }
+  re_tuple_set.set_schema(schema);
+  const std::vector<Tuple> &tuples = tuple_set.tuples();
+  for (const Tuple &tuple: tuples) {
+    Tuple tuple_;
+    for (int index:indexs) {
+      tuple_.add(tuple.get_pointer(index));
+    }
+    re_tuple_set.add(std::move(tuple_));
+  }
+  return RC::SUCCESS;
 }
 
 // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
@@ -361,7 +492,8 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   }
 
   std::vector<TupleSet> tuple_sets;
-  for (SelectExeNode *&node: select_nodes) {
+  for (std::vector<SelectExeNode *>::reverse_iterator iter=select_nodes.rbegin(); iter!=select_nodes.rend(); iter++) {
+    SelectExeNode *&node = *iter;
     TupleSet tuple_set;
     rc = node->execute(tuple_set);
     if (rc != RC::SUCCESS) {
@@ -374,25 +506,39 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       tuple_sets.push_back(std::move(tuple_set));
     }
   }
+  // for (SelectExeNode *&node: select_nodes) {
+  //   TupleSet tuple_set;
+  //   rc = node->execute(tuple_set);
+  //   if (rc != RC::SUCCESS) {
+  //     for (SelectExeNode *& tmp_node: select_nodes) {
+  //       delete tmp_node;
+  //     }
+  //     end_trx_if_need(session, trx, false);
+  //     return rc;
+  //   } else {
+  //     tuple_sets.push_back(std::move(tuple_set));
+  //   }
+  // }
 
   std::stringstream ss;
   if (tuple_sets.size() > 1) {
     // 本次查询了多张表，需要做join操作
-    
-    std::vector<std::string> join_table;
-    std::string header;
-    for (int i=0; i<tuple_sets.size()-1; i++) {
-      header += tuple_sets[i].header_to_string(true) + " | ";
-    }
-    header += tuple_sets[tuple_sets.size()-1].header_to_string(true);
-    join_table.push_back(header);
-    dfs(tuple_sets, join_table);
-    for (size_t i=0; i<join_table.size(); i++) {
-      ss << join_table[i] << std::endl;
-    }
+
+    TupleSet join_tuple_set;
+    TupleSet re_tuple_set, re_tuple_set_;
+    dfs2(tuple_sets, join_tuple_set);
+    JoinSelectExeNode join_select_node;
+    rc = create_join_selection_executor(trx, selects, db, &join_tuple_set, join_select_node);
+    join_select_node.execute(re_tuple_set);
+    projection(db, re_tuple_set, selects, re_tuple_set_);
+    re_tuple_set_.print(ss);
+
+
   } else {
     // 当前只查询一张表，直接返回结果即可
-    tuple_sets.front().print(ss);
+    TupleSet re_tuple_set;
+    projection(db, tuple_sets.front(), selects, re_tuple_set);
+    re_tuple_set.print(ss);
   }
 
   for (SelectExeNode *& tmp_node: select_nodes) {
@@ -431,26 +577,28 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
     LOG_WARN("No such table [%s] in db [%s]", table_name, db);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-  bool end = false;
-  for (int i = selects.attr_num - 1; i >= 0; i--) {
-    const RelAttr &attr = selects.attributes[i];
-    if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
-      if (end) {
-        return RC::GENERIC_ERROR;
-      }
-      if (0 == strcmp("*", attr.attribute_name)) {
-        // 列出这张表所有字段
-        TupleSchema::from_table(table, schema);
-        end = false;
-      } else {
-        // 列出这张表相关字段
-        RC rc = schema_add_field(table, attr.attribute_name, schema);
-        if (rc != RC::SUCCESS) {
-          return rc;
-        }
-      }
-    }
-  }
+  TupleSchema::from_table(table, schema);
+  // bool end = false;
+  // for (int i = selects.attr_num - 1; i >= 0; i--) {
+  //   const RelAttr &attr = selects.attributes[i];
+  //   if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
+  //     TupleSchema::from_table(table, schema);
+  //     // if (end) {
+  //     //   return RC::GENERIC_ERROR;
+  //     // }
+  //     // if (0 == strcmp("*", attr.attribute_name)) {
+  //     //   // 列出这张表所有字段
+  //     //   TupleSchema::from_table(table, schema);
+  //     //   end = false;
+  //     // } else {
+  //     //   // 列出这张表相关字段
+  //     //   RC rc = schema_add_field(table, attr.attribute_name, schema);
+  //     //   if (rc != RC::SUCCESS) {
+  //     //     return rc;
+  //     //   }
+  //     // }
+  //   }
+  // }
 
   // 找出仅与此表相关的过滤条件, 或者都是值的过滤条件
   std::vector<DefaultConditionFilter *> condition_filters;
@@ -476,4 +624,86 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
   }
 
   return select_node.init(trx, table, std::move(schema), std::move(condition_filters));
+}
+
+bool same_table(char *left_table_name, char * right_table_name) {
+  if (left_table_name != nullptr && right_table_name != nullptr) {
+    return 0 == strcmp(left_table_name, right_table_name);
+  }
+
+  return false;
+}
+
+// 把所有的表和只跟这张表关联的condition都拿出来，生成最底层的select 执行节点
+RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *db, TupleSet *join_tuple_set, JoinSelectExeNode &join_select_node) {
+  // 列出跟这张表关联的Attr
+  TupleSchema schema;
+
+  // 找出与两个表相关的过滤条件
+  std::vector<DefaultConditionFilter *> condition_filters;
+  for (size_t i = 0; i < selects.condition_num; i++) {
+    const Condition &condition = selects.conditions[i];
+    if (
+        (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
+            !same_table(condition.left_attr.relation_name, condition.right_attr.relation_name)) // 左右都是属性名，并且表名都符合
+        ) {
+      Table * table_left = DefaultHandler::get_default().find_table(db, condition.left_attr.relation_name);
+      const TableMeta &table_meta_left = table_left->table_meta();
+      Table * table_right = DefaultHandler::get_default().find_table(db, condition.right_attr.relation_name);
+      const TableMeta &table_meta_right = table_right->table_meta();
+      ConDesc left;
+      ConDesc right;
+      AttrType type_left = UNDEFINED;
+      AttrType type_right = UNDEFINED;
+      const FieldMeta *field_left = table_meta_left.field(condition.left_attr.attribute_name);
+      if (nullptr == field_left) {
+        LOG_WARN("No such field in condition. %s.%s", table_left->name(), condition.left_attr.attribute_name);
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+      left.attr_length = field_left->len();
+      left.attr_offset = field_left->offset();
+      left.is_attr = true;
+      type_left = field_left->type();
+      left.value = nullptr;
+      left.table_name = new char[strlen(condition.left_attr.relation_name) + 1];
+      strcpy(left.table_name, condition.left_attr.relation_name);
+      left.attr_name = new char[strlen(condition.left_attr.attribute_name) + 1];
+      strcpy(left.attr_name, condition.left_attr.attribute_name);
+      
+      const FieldMeta *field_right = table_meta_right.field(condition.right_attr.attribute_name);
+      if (nullptr == field_right)
+      {
+        LOG_WARN("No such field in condition. %s.%s", table_right->name(), condition.right_attr.attribute_name);
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+      right.attr_length = field_right->len();
+      right.attr_offset = field_right->offset();
+      right.is_attr = true;
+      type_right = field_right->type();
+      right.value = nullptr;
+      right.table_name = new char[strlen(condition.right_attr.relation_name) + 1];
+      strcpy(right.table_name, condition.right_attr.relation_name);
+      right.attr_name = new char[strlen(condition.right_attr.attribute_name) + 1];
+      strcpy(right.attr_name, condition.right_attr.attribute_name);
+      if (type_left != type_right)
+      {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+
+      DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
+      
+
+      RC rc = condition_filter->init(left, right, type_left, condition.comp);
+      if (rc != RC::SUCCESS) {
+        delete condition_filter;
+        for (DefaultConditionFilter * &filter : condition_filters) {
+          delete filter;
+        }
+        return rc;
+      }
+      condition_filters.push_back(condition_filter);
+    }
+  }
+
+  return join_select_node.init(trx, join_tuple_set, std::move(condition_filters));
 }

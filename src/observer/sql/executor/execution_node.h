@@ -45,4 +45,18 @@ private:
   std::vector<DefaultConditionFilter *> condition_filters_;
 };
 
+class JoinSelectExeNode : public ExecutionNode {
+public:
+  JoinSelectExeNode();
+  virtual ~JoinSelectExeNode();
+
+  RC init(Trx *trx, TupleSet *tuple_set, std::vector<DefaultConditionFilter *> &&condition_filters);
+
+  RC execute(TupleSet &tuple_set) override;
+private:
+  Trx *trx_ = nullptr;
+  TupleSet *tuple_set_;
+  std::vector<DefaultConditionFilter *> condition_filters_;
+};
+
 #endif //__OBSERVER_SQL_EXECUTOR_EXECUTION_NODE_H_

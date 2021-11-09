@@ -173,6 +173,10 @@ void TupleSet::add(Tuple &&tuple) {
   tuples_.emplace_back(std::move(tuple));
 }
 
+void TupleSet::add_(const Tuple &tuple) {
+  tuples_.emplace_back(std::move(tuple));
+}
+
 void TupleSet::clear() {
   tuples_.clear();
   schema_.clear();
