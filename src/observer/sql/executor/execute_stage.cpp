@@ -530,7 +530,15 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     JoinSelectExeNode join_select_node;
     rc = create_join_selection_executor(trx, selects, db, &join_tuple_set, join_select_node);
     join_select_node.execute(re_tuple_set);
-    projection(db, re_tuple_set, selects, re_tuple_set_);
+    rc = projection(db, re_tuple_set, selects, re_tuple_set_);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("projection error");
+      // end_trx_if_need(session, trx, false);
+      char response[256];
+      snprintf(response, sizeof(response), "%s\n", "FAILURE");
+      session_event->set_response(response);
+      return RC::GENERIC_ERROR;
+    }
     re_tuple_set_.print(ss);
 
 
