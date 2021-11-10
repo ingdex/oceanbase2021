@@ -826,7 +826,16 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
   if (nullptr == index) {
     return nullptr;
   }
-
+  if (field_meta->type() == DATES) {
+    MyDate date((char *)value_cond_desc->value);
+    int value = int(date.toInt());
+    char old_value[4];
+    memcpy(old_value, value_cond_desc->value, 4);
+    memcpy(value_cond_desc->value, &value, 4);
+    IndexScanner * index_scanner = index->create_scanner(filter.comp_op(), (const char *)value_cond_desc->value);
+    memcpy(value_cond_desc->value, old_value, 4);
+    return index_scanner;
+  }
   return index->create_scanner(filter.comp_op(), (const char *)value_cond_desc->value);
 }
 
