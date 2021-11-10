@@ -119,6 +119,7 @@ public:
   }
 
   void print(std::ostream &os) const;
+  void print(std::ostream &os, bool print_table_name) const;
   std::string to_string(bool printTableName) const;
 public:
   static void from_table(const Table *table, TupleSchema &schema);
@@ -151,6 +152,7 @@ public:
   const std::vector<Tuple> &tuples() const;
 
   void print(std::ostream &os) const;
+  void print(std::ostream &os, bool print_table_name) const;
   std::string to_string(int index) const;
   std::string to_string(char *table_name) const;
   std::string header_to_string(bool printTableName) const;

@@ -539,7 +539,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       session_event->set_response(response);
       return RC::GENERIC_ERROR;
     }
-    re_tuple_set_.print(ss);
+    re_tuple_set_.print(ss, true);
 
 
   } else {
