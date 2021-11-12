@@ -29,8 +29,10 @@ See the Mulan PSL v2 for more details. */
 #include "common/metrics/metrics_registry.h"
 #include "common/metrics/console_reporter.h"
 
+// #include <iostream>
+
 #define MAX_MEM_BUFFER_SIZE 8192
-#define PORT_DEFAULT 66789
+#define PORT_DEFAULT 6789
 
 using namespace common;
 char *server_host = (char *)LOCAL_HOST;
@@ -93,6 +95,131 @@ void *test_server(void *param)
   return NULL;
 }
 
+void *my_test_server()
+{
+
+  std::cout << "Begin to connect server. " << std::endl;
+  int sockfd, sendbytes;
+  // char send[MAXLINE];
+
+  char send_buf[MAX_MEM_BUFFER_SIZE] = {0};
+  char recv_buf[MAX_MEM_BUFFER_SIZE] = {0};
+  snprintf(send_buf, sizeof(send_buf), "%s", "select count(*) from test");
+  // char buf[MAXDATASIZE];
+  struct hostent *host;
+  struct sockaddr_in serv_addr;
+
+  if ((host = gethostbyname(server_host)) == NULL) {
+    perror("gethostbyname");
+    exit(1);
+  }
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    perror("socket error \n");
+    exit(1);
+  }
+
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons((uint16_t)PORT_DEFAULT);
+  serv_addr.sin_addr = *((struct in_addr *)host->h_addr);
+  bzero(&(serv_addr.sin_zero), 8);
+
+  if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr)) == -1) {
+    perror("Failed to connect \n");
+    exit(1);
+  }
+  // create tables
+  for (int i=1; i<=6; i++) {
+    usleep(10000);
+    snprintf(send_buf, sizeof(send_buf), "%s%d%s", "drop table JOIN_TABLE_LARGE_", i, ";");
+    std::cout<< send_buf << std::endl; 
+    if ((sendbytes = send(sockfd, send_buf, strlen(send_buf) + 1, 0)) == -1) {
+      perror("send error \n");
+      exit(1);
+    }
+
+    memset(recv_buf, 0, sizeof(recv_buf));
+
+    int len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
+    if (len < 0) {
+      printf("connection exception\n");
+      break;
+    }
+    if (len == 0) {
+      printf("Connection has been closed\n");
+      break;
+    }
+    std::cout<< recv_buf << std::endl; 
+    usleep(10000);
+    snprintf(send_buf, sizeof(send_buf), "%s%d%s%d%s", "create table JOIN_TABLE_LARGE_", i, "(ID int, NUM", i, " int);");
+    std::cout<< send_buf << std::endl; 
+    if ((sendbytes = send(sockfd, send_buf, strlen(send_buf) + 1, 0)) == -1) {
+      perror("send error \n");
+      exit(1);
+    }
+
+    memset(recv_buf, 0, sizeof(recv_buf));
+
+    len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
+    if (len < 0) {
+      printf("connection exception\n");
+      break;
+    }
+    if (len == 0) {
+      printf("Connection has been closed\n");
+      break;
+    }
+    std::cout<< recv_buf << std::endl; 
+    for (int j=1; j<=100; j++) {
+      // sleep(1);
+      usleep(10000);
+      snprintf(send_buf, sizeof(send_buf), "%s%d%s%d%s%d%s", "Insert into JOIN_TABLE_LARGE_", i, " values(", j, ", ", j, ");");
+      std::cout<< send_buf << std::endl; 
+      if ((sendbytes = send(sockfd, send_buf, strlen(send_buf) + 1, 0)) == -1) {
+        perror("send error \n");
+        exit(1);
+      }
+
+      memset(recv_buf, 0, sizeof(recv_buf));
+
+      int len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
+      if (len < 0) {
+        printf("connection exception\n");
+        break;
+      }
+      if (len == 0) {
+        printf("Connection has been closed\n");
+        break;
+      }
+      std::cout<< recv_buf << std::endl; 
+
+    }
+  }
+  usleep(10000);
+  snprintf(send_buf, sizeof(send_buf), "%s", "select * from JOIN_TABLE_LARGE_1;");
+  std::cout<< send_buf << std::endl; 
+  if ((sendbytes = send(sockfd, send_buf, strlen(send_buf) + 1, 0)) == -1)
+  {
+    perror("send error \n");
+    exit(1);
+  }
+
+  memset(recv_buf, 0, sizeof(recv_buf));
+
+  int len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
+  if (len < 0)
+  {
+    printf("connection exception\n");
+  }
+  if (len == 0)
+  {
+    printf("Connection has been closed\n");
+  }
+  std::cout << recv_buf << std::endl;
+
+  close(sockfd);
+  return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -107,16 +234,16 @@ int main(int argc, char *argv[])
   Meter *tps_meter = new Meter();
 
   metric_registry.register_metric("client.sendtps", tps_meter);
+  my_test_server();
+  // for (int i = 0; i < 8; i++) {
+  //   pthread_t pid;
+  //   pthread_create(&pid, NULL, test_server, tps_meter);
+  // }
 
-  for (int i = 0; i < 8; i++) {
-    pthread_t pid;
-    pthread_create(&pid, NULL, test_server, tps_meter);
-  }
-
-  while (1) {
-    sleep(60);
-    metric_registry.snapshot();
-    metric_registry.report();
-  }
+  // while (1) {
+  //   sleep(60);
+  //   metric_registry.snapshot();
+  //   metric_registry.report();
+  // }
   return 0;
 }

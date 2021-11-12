@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 #include "storage/common/condition_filter.h"
 #include "sql/executor/tuple.h"
+#include <unordered_map>
 
 class Table;
 class Trx;
@@ -50,12 +51,14 @@ public:
   JoinSelectExeNode();
   virtual ~JoinSelectExeNode();
 
-  RC init(Trx *trx, TupleSet *tuple_set, std::vector<DefaultConditionFilter *> &&condition_filters);
+  RC init(Trx *trx, std::vector<TupleSet> *tuple_sets_, std::unordered_map<std::string,int> *table_map, std::vector<DefaultConditionFilter *> &&condition_filters);
 
   RC execute(TupleSet &tuple_set) override;
 private:
   Trx *trx_ = nullptr;
-  TupleSet *tuple_set_;
+  // TupleSet *tuple_set_;
+  std::vector<TupleSet> *tuple_sets_;
+  std::unordered_map<std::string,int> *table_map_;
   std::vector<DefaultConditionFilter *> condition_filters_;
 };
 

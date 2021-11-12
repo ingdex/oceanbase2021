@@ -37,8 +37,7 @@ See the Mulan PSL v2 for more details. */
 using namespace common;
 
 RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, const char *table_name, SelectExeNode &select_node);
-RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *db, TupleSet *join_tuple_set, JoinSelectExeNode &join_select_node);
-
+RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *db, std::vector<TupleSet> *tuple_sets, std::unordered_map<std::string,int> *table_map, JoinSelectExeNode &join_select_node);
 //! Constructor
 ExecuteStage::ExecuteStage(const char *tag) : Stage(tag) {}
 
@@ -298,10 +297,6 @@ void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, std::string str
 
 
 void dfs(std::vector<TupleSet> &tuple_sets, std::vector<std::string> &result) {
-  // bool flag = true;
-  // if (flag) {
-  //   result.push_back(tuple)
-  // }
   dfs_helper(tuple_sets, 0, "", result);
 }
 
@@ -323,11 +318,6 @@ void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, Tuple &tuple, T
 }
 
 void dfs(std::vector<TupleSet> &tuple_sets, TupleSet &join_tuple_set) {
-  // bool flag = true;
-  // if (flag) {
-  //   result.push_back(tuple)
-  // }
-  // std::vector<Tuple> tuple_set;
   TupleSchema schema;
   for (TupleSet &tuple_set: tuple_sets) {
     schema.append(tuple_set.get_schema());
@@ -363,17 +353,11 @@ void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, std::vector<std
 }
 
 void dfs2(std::vector<TupleSet> &tuple_sets, TupleSet &join_tuple_set) {
-  // bool flag = true;
-  // if (flag) {
-  //   result.push_back(tuple)
-  // }
-  // std::vector<Tuple> tuple_set;
   TupleSchema schema;
   for (TupleSet &tuple_set: tuple_sets) {
     schema.append(tuple_set.get_schema());
   }
   join_tuple_set.set_schema(schema);
-  // Tuple tuple;
   std::vector<std::shared_ptr<TupleValue>>  values;
   dfs_helper(tuple_sets, 0, values, join_tuple_set);
 }
@@ -473,18 +457,13 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       }
       end_trx_if_need(session, trx, false);
       char response[256];
-      snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
+      snprintf(response, sizeof(response), "%s\n", "FAILURE");
       session_event->set_response(response);
       return rc;
     }
     select_nodes.push_back(select_node);
     table_map[table_name] = i;
   }
-
-  // for (size_t i=0; i<table_map.size(); i++) {
-
-  // }
-
   if (table_map.empty()) {
     LOG_ERROR("No table given");
     end_trx_if_need(session, trx, false);
@@ -501,34 +480,23 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         delete tmp_node;
       }
       end_trx_if_need(session, trx, false);
+      char response[256];
+      snprintf(response, sizeof(response), "%s\n", "FAILURE");
+      session_event->set_response(response);
       return rc;
     } else {
-      tuple_sets.push_back(std::move(tuple_set));
+      tuple_sets.insert(tuple_sets.begin(), std::move(tuple_set));
     }
   }
-  // for (SelectExeNode *&node: select_nodes) {
-  //   TupleSet tuple_set;
-  //   rc = node->execute(tuple_set);
-  //   if (rc != RC::SUCCESS) {
-  //     for (SelectExeNode *& tmp_node: select_nodes) {
-  //       delete tmp_node;
-  //     }
-  //     end_trx_if_need(session, trx, false);
-  //     return rc;
-  //   } else {
-  //     tuple_sets.push_back(std::move(tuple_set));
-  //   }
-  // }
 
   std::stringstream ss;
   if (tuple_sets.size() > 1) {
     // 本次查询了多张表，需要做join操作
-
     TupleSet join_tuple_set;
     TupleSet re_tuple_set, re_tuple_set_;
-    dfs2(tuple_sets, join_tuple_set);
+    // dfs2(tuple_sets, join_tuple_set);
     JoinSelectExeNode join_select_node;
-    rc = create_join_selection_executor(trx, selects, db, &join_tuple_set, join_select_node);
+    rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
     join_select_node.execute(re_tuple_set);
     rc = projection(db, re_tuple_set, selects, re_tuple_set_);
     if (rc != RC::SUCCESS) {
@@ -540,12 +508,17 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       return RC::GENERIC_ERROR;
     }
     re_tuple_set_.print(ss, true);
-
-
   } else {
     // 当前只查询一张表，直接返回结果即可
     TupleSet re_tuple_set;
-    projection(db, tuple_sets.front(), selects, re_tuple_set);
+    rc = projection(db, tuple_sets.front(), selects, re_tuple_set);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("projection error");
+      char response[256];
+      snprintf(response, sizeof(response), "%s\n", "FAILURE");
+      session_event->set_response(response);
+      return RC::GENERIC_ERROR;
+    }
     re_tuple_set.print(ss);
   }
 
@@ -586,27 +559,6 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
   TupleSchema::from_table(table, schema);
-  // bool end = false;
-  // for (int i = selects.attr_num - 1; i >= 0; i--) {
-  //   const RelAttr &attr = selects.attributes[i];
-  //   if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
-  //     TupleSchema::from_table(table, schema);
-  //     // if (end) {
-  //     //   return RC::GENERIC_ERROR;
-  //     // }
-  //     // if (0 == strcmp("*", attr.attribute_name)) {
-  //     //   // 列出这张表所有字段
-  //     //   TupleSchema::from_table(table, schema);
-  //     //   end = false;
-  //     // } else {
-  //     //   // 列出这张表相关字段
-  //     //   RC rc = schema_add_field(table, attr.attribute_name, schema);
-  //     //   if (rc != RC::SUCCESS) {
-  //     //     return rc;
-  //     //   }
-  //     // }
-  //   }
-  // }
 
   // 找出仅与此表相关的过滤条件, 或者都是值的过滤条件
   std::vector<DefaultConditionFilter *> condition_filters;
@@ -643,7 +595,7 @@ bool same_table(char *left_table_name, char * right_table_name) {
 }
 
 // 把所有的表和只跟这张表关联的condition都拿出来，生成最底层的select 执行节点
-RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *db, TupleSet *join_tuple_set, JoinSelectExeNode &join_select_node) {
+RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *db, std::vector<TupleSet> *tuple_sets, std::unordered_map<std::string,int> *table_map, JoinSelectExeNode &join_select_node) {
   // 列出跟这张表关联的Attr
   TupleSchema schema;
 
@@ -713,5 +665,5 @@ RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *
     }
   }
 
-  return join_select_node.init(trx, join_tuple_set, std::move(condition_filters));
+  return join_select_node.init(trx, tuple_sets, table_map, std::move(condition_filters));
 }
