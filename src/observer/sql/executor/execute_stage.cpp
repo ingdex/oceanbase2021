@@ -462,7 +462,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       return rc;
     }
     select_nodes.push_back(select_node);
-    table_map[table_name] = i;
+    table_map[table_name] = selects.relation_num - 1 - i;
   }
   if (table_map.empty()) {
     LOG_ERROR("No table given");
@@ -485,7 +485,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       session_event->set_response(response);
       return rc;
     } else {
-      tuple_sets.insert(tuple_sets.begin(), std::move(tuple_set));
+      tuple_sets.push_back(std::move(tuple_set));
     }
   }
 
