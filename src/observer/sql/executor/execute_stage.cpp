@@ -370,12 +370,50 @@ std::string create_header(std::vector<TupleSet> tuple_sets, bool printTableName)
   }
 }
 
+enum AGGREGATION_TYPE {
+  MAX, MIN, COUNT, AVG, NOT_KNOWN
+};
+
+AGGREGATION_TYPE is_aggregation_select(const char * attribute_name, char * &real_attribute_name) {
+  if (attribute_name == nullptr) {
+    return NOT_KNOWN;
+  }
+  if (attribute_name[0] == 'M') {
+    if (attribute_name[1] == 'A' && attribute_name[2] == 'X' && attribute_name[3] == '*') {
+      size_t len = strlen(attribute_name) + 1 - 4;
+      real_attribute_name = new char[len];
+      strcpy(real_attribute_name, attribute_name+4);
+      return MAX;
+    }
+    if (attribute_name[1] == 'I' && attribute_name[2] == 'N' && attribute_name[3] == '*') {
+      size_t len = strlen(attribute_name) + 1 - 4;
+      real_attribute_name = new char[len];
+      strcpy(real_attribute_name, attribute_name+4);
+      return MIN;
+    }
+    return NOT_KNOWN;
+  } else if (attribute_name[0] == 'C' && attribute_name[1] == 'O' && attribute_name[2] == 'U' && attribute_name[3] == 'N' && attribute_name[4] == 'T' && attribute_name[5] == '*') {
+    size_t len = strlen(attribute_name) + 1 - 6;
+    real_attribute_name = new char[len];
+    strcpy(real_attribute_name, attribute_name+6);
+    return MAX;
+  } else if (attribute_name[0] == 'A' && attribute_name[1] == 'V' && attribute_name[2] == 'G' && attribute_name[3] == '*') {
+    size_t len = strlen(attribute_name) + 1 - 4;
+    real_attribute_name = new char[len];
+    strcpy(real_attribute_name, attribute_name+4);
+    return AVG;
+  }
+  return NOT_KNOWN;
+}
+
 RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, TupleSet &re_tuple_set) {
   re_tuple_set.clear();
   TupleSchema schema;
   const TupleSchema &schema_all = tuple_set.get_schema();
   std::map<std::string, bool> skip_flag;
   std::vector <size_t> indexs; // 需要取出的属性下标集合
+  bool aggregation_flag = false;
+  std::vector <AGGREGATION_TYPE> aggreations;
   if (selects.relation_num == 1) {
     char *table_name = selects.relations[0];
     Table * table = DefaultHandler::get_default().find_table(db, table_name);
@@ -387,6 +425,20 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
       
       auto search = skip_flag.find(table_name);
       if (search != skip_flag.end() && search->second == true) {
+        continue;
+      }
+      char *real_relation_name;
+      AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_relation_name);
+      if (aggreation != NOT_KNOWN) {
+        aggregation_flag = true;
+        aggreations.push_back(aggreation);
+        const FieldMeta *field_meta = table->table_meta().field(real_relation_name);
+        if (nullptr == field_meta) {
+          LOG_WARN("No such field. %s.%s", table->name(), real_relation_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        indexs.push_back(schema_all.index_of_field(table_name, real_relation_name));
+        schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
         continue;
       }
       if (strcmp(attr.attribute_name, "*") == 0) {
