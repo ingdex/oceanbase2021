@@ -376,44 +376,79 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
   const TupleSchema &schema_all = tuple_set.get_schema();
   std::map<std::string, bool> skip_flag;
   std::vector <size_t> indexs; // 需要取出的属性下标集合
-  for (int i = selects.attr_num - 1; i >= 0; i--) {
-    const RelAttr &attr = selects.attributes[i];
-    if (attr.relation_name == nullptr) {
-      if (0 != strcmp(attr.attribute_name, "*")) {
-        return RC::GENERIC_ERROR;
+  if (selects.relation_num == 1) {
+    char *table_name = selects.relations[0];
+    Table * table = DefaultHandler::get_default().find_table(db, table_name);
+    for (int i = selects.attr_num - 1; i >= 0; i--) {
+      const RelAttr &attr = selects.attributes[i];
+      if (attr.relation_name != nullptr && 0 != strcmp(attr.relation_name, table_name)) {
+        return RC::SCHEMA_TABLE_NOT_EXIST;
       }
-      schema.clear();
-      schema = tuple_set.get_schema();
-      for (size_t i=0; i<schema.fields().size(); i++) {
-        indexs.push_back(i);
+      
+      auto search = skip_flag.find(table_name);
+      if (search != skip_flag.end() && search->second == true) {
+        continue;
       }
-      // re_tuple_set.set_schema(tuple_set.get_schema());
-      break;
-    }
-    Table * table = DefaultHandler::get_default().find_table(db, attr.relation_name);
-    auto search = skip_flag.find(attr.relation_name);
-    if (search != skip_flag.end() && search->second == true) {
-      continue;
-    }
-    if (strcmp(attr.attribute_name, "*") == 0) {
-      skip_flag[attr.relation_name] = true;
-      const TableMeta &table_meta = table->table_meta();
-      for (int i=0; i<table_meta.field_num()-table_meta.sys_field_num(); i++) {
-        const FieldMeta * field_meta = table_meta.field(i);
-        indexs.push_back(schema_all.index_of_field(table->name(), field_meta->name()));
+      if (strcmp(attr.attribute_name, "*") == 0) {
+        skip_flag[table_name] = true;
+        const TableMeta &table_meta = table->table_meta();
+        for (int i=0; i<table_meta.field_num()-table_meta.sys_field_num(); i++) {
+          const FieldMeta * field_meta = table_meta.field(i);
+          indexs.push_back(schema_all.index_of_field(table->name(), field_meta->name()));
+          schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+        }
+      } else {
+        const FieldMeta *field_meta = table->table_meta().field(attr.attribute_name);
+        if (nullptr == field_meta) {
+          LOG_WARN("No such field. %s.%s", table->name(), attr.attribute_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        indexs.push_back(schema_all.index_of_field(table_name, attr.attribute_name));
         schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
       }
-    } else {
-      const FieldMeta *field_meta = table->table_meta().field(attr.attribute_name);
-      if (nullptr == field_meta) {
-        LOG_WARN("No such field. %s.%s", table->name(), attr.attribute_name);
-        return RC::SCHEMA_FIELD_MISSING;
-      }
-      indexs.push_back(schema_all.index_of_field(attr.relation_name, attr.attribute_name));
-      schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+      
     }
-    
+  } else {
+    for (int i = selects.attr_num - 1; i >= 0; i--) {
+      const RelAttr &attr = selects.attributes[i];
+      if (attr.relation_name == nullptr) {
+        if (0 != strcmp(attr.attribute_name, "*")) {
+          return RC::GENERIC_ERROR;
+        }
+        schema.clear();
+        schema = tuple_set.get_schema();
+        for (size_t i=0; i<schema.fields().size(); i++) {
+          indexs.push_back(i);
+        }
+        // re_tuple_set.set_schema(tuple_set.get_schema());
+        break;
+      }
+      Table * table = DefaultHandler::get_default().find_table(db, attr.relation_name);
+      auto search = skip_flag.find(attr.relation_name);
+      if (search != skip_flag.end() && search->second == true) {
+        continue;
+      }
+      if (strcmp(attr.attribute_name, "*") == 0) {
+        skip_flag[attr.relation_name] = true;
+        const TableMeta &table_meta = table->table_meta();
+        for (int i=0; i<table_meta.field_num()-table_meta.sys_field_num(); i++) {
+          const FieldMeta * field_meta = table_meta.field(i);
+          indexs.push_back(schema_all.index_of_field(table->name(), field_meta->name()));
+          schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+        }
+      } else {
+        const FieldMeta *field_meta = table->table_meta().field(attr.attribute_name);
+        if (nullptr == field_meta) {
+          LOG_WARN("No such field. %s.%s", table->name(), attr.attribute_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        indexs.push_back(schema_all.index_of_field(attr.relation_name, attr.attribute_name));
+        schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+      }
+      
+    }
   }
+  
   re_tuple_set.set_schema(schema);
   const std::vector<Tuple> &tuples = tuple_set.tuples();
   for (const Tuple &tuple: tuples) {
