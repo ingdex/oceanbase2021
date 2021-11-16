@@ -77,6 +77,9 @@ QUOTE            [\'\"]
 [Jj][Oo][Ii][Nn]						RETURN_TOKEN(JOIN);
 [Oo][Rr][Dd][Ee][Rr]					RETURN_TOKEN(ORDER);
 [Bb][Yy]								RETURN_TOKEN(BY);
+[Nn][Oo][Tt]								RETURN_TOKEN(NOT);
+[Nn][Uu][Ll][Ll]								RETURN_TOKEN(NULL_T);
+[Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]		RETURN_TOKEN(NULLABLE);
 [Mm][Aa][Xx]							yylval->string=strdup(yytext); RETURN_TOKEN(MAX);
 [Mm][Ii][Nn]							yylval->string=strdup(yytext); RETURN_TOKEN(MIN);
 [Cc][Oo][Uu][Nn][Tt]					yylval->string=strdup(yytext); RETURN_TOKEN(COUNT);
