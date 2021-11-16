@@ -433,14 +433,6 @@ select_attr:
 			relation_attr_init(&attr, NULL, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
-	| MAX LBRACE STAR RBRACE aggregation_list {
-			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($1)+4));
-			strcpy(s, $1);
-			strcat(s, "(*)");
-			relation_attr_init(&attr, NULL, s);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-	}
 	| MIN LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
 			char* s=malloc(sizeof(char)*(strlen($1)+strlen($3)+3));
@@ -448,15 +440,6 @@ select_attr:
 			strcat(s, "(");
 			strcat(s, $3);
 			strcat(s, ")");
-			relation_attr_init(&attr, NULL, s);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-	}
-	| MIN LBRACE STAR RBRACE aggregation_list {
-			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($1)+4));
-			strcpy(s, $1);
-			strcat(s, "(*)");
-			// strcat(s, $3);
 			relation_attr_init(&attr, NULL, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
@@ -486,15 +469,6 @@ select_attr:
 			strcat(s, "(");
 			strcat(s, $3);
 			strcat(s, ")");
-			relation_attr_init(&attr, NULL, s);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-	}
-	| AVG LBRACE STAR RBRACE aggregation_list {
-			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($1)+4));
-			strcpy(s, $1);
-			strcat(s, "(*)");
-			// strcat(s, $3);
 			relation_attr_init(&attr, NULL, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
