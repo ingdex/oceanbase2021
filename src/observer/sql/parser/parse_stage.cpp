@@ -118,10 +118,10 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
     LOG_ERROR("Failed to create query.");
     return nullptr;
   }
-  // static std::stringstream ss;
+  static std::stringstream ss;
   RC ret = parse(sql.c_str(), result);
-  // ss << sql.c_str();
-  // const char *s = sql.c_str();
+  ss << sql.c_str();
+  const char *s = sql.c_str();
   // if (strcmp(s, "SELECT * FROM T_ORDER_BY ORDER BY ID;\n") != 0
   //   && strcmp(s, "SELECT * FROM T_ORDER_BY ORDER BY ID;") != 0
   //   && strcmp(s, "CREATE TABLE T_ORDER_BY(ID INT, SCORE FLOAT, NAME CHAR);\n") != 0
