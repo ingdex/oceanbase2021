@@ -269,8 +269,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values, int insert
   }
   //如果有没插入成功的，删除之前插入成功的记录
   else {
-    for (int i = 0; i < insert_counter; i++)
-      delete_record(trx, &temp_record[i]);
+    for (int i = 0; i < insert_counter; i++) {
+      RC rc2 = rollback_insert(trx, temp_record[i].rid);
+    }
     delete[] temp_value;
     delete[] temp_record;
     return RC::RECORD;

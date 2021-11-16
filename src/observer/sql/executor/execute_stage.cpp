@@ -474,9 +474,10 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
         const Tuple &tuple_ = tuple_set.get(i);
         const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
         std::string str = value_->to_string();
-        if (value_exist_map.find(str) == value_exist_map.end()) {
-          count++;
-        }
+        // if (value_exist_map.find(str) == value_exist_map.end()) {
+        //   count++;
+        // }
+        count++;
         value_exist_map[str] = true;
       }
     }
