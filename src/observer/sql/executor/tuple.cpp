@@ -326,7 +326,7 @@ RC TupleSet::sort(const Selects &selects) {
         Tuple *tuple_p2 = nullptr;
         for (size_t k=j+1; k<tuples_.size(); k++) {
           tuple_p2 = &tuples_[k];
-          if (tuple_p1->get_pointer(compare_index)->compare(tuple_p2->get(compare_index)) >= 0) {
+          if (tuple_p1->get_pointer(compare_index)->compare(tuple_p2->get(compare_index)) > 0) {
             min = k;
             tuple_p1 = &tuples_[min];
           }
@@ -364,7 +364,7 @@ RC TupleSet::sort(const Selects &selects) {
         Tuple *tuple_p2 = nullptr;
         for (size_t k=j+1; k<tuples_.size(); k++) {
           tuple_p2 = &tuples_[k];
-          if (tuple_p1->get_pointer(compare_index)->compare(tuple_p2->get(compare_index)) <= 0) {
+          if (tuple_p1->get_pointer(compare_index)->compare(tuple_p2->get(compare_index)) < 0) {
             max = k;
             tuple_p1 = &tuples_[max];
           }
