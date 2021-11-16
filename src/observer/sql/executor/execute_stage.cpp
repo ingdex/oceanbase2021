@@ -214,6 +214,154 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
   }
 }
 
+// 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
+// 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
+RC ExecuteStage::do_select2(const char *db, Query *sql, SessionEvent *session_event) {
+
+  RC rc = RC::SUCCESS;
+  Session *session = session_event->get_client()->session;
+  Trx *trx = session->current_trx();
+  const Selects &selects = sql->sstr.selection;
+  // 把所有的表和只跟这张表关联的condition都拿出来，生成最底层的select 执行节点
+  std::vector<SelectExeNode *> select_nodes;
+  for (size_t i = 0; i < selects.relation_num; i++) {
+    const char *table_name = selects.relations[i];
+    SelectExeNode *select_node = new SelectExeNode;
+    rc = create_selection_executor(trx, selects, db, table_name, *select_node);
+    if (rc != RC::SUCCESS) {
+      delete select_node;
+      for (SelectExeNode *& tmp_node: select_nodes) {
+        delete tmp_node;
+      }
+      end_trx_if_need(session, trx, false);
+      char response[256];
+      snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
+      session_event->set_response(response);
+      return rc;
+    }
+    select_nodes.push_back(select_node);
+  }
+
+  if (select_nodes.empty()) {
+    LOG_ERROR("No table given");
+    end_trx_if_need(session, trx, false);
+    return RC::SQL_SYNTAX;
+  }
+
+  std::vector<TupleSet> tuple_sets;
+  for (SelectExeNode *&node: select_nodes) {
+    TupleSet tuple_set;
+    rc = node->execute(tuple_set);
+    if (rc != RC::SUCCESS) {
+      for (SelectExeNode *& tmp_node: select_nodes) {
+        delete tmp_node;
+      }
+      end_trx_if_need(session, trx, false);
+      return rc;
+    } else {
+      tuple_sets.push_back(std::move(tuple_set));
+    }
+  }
+
+  std::stringstream ss;
+  if (tuple_sets.size() > 1) {
+    // 本次查询了多张表，需要做join操作
+  } else {
+    // 当前只查询一张表，直接返回结果即可
+    tuple_sets.front().print(ss);
+  }
+
+  for (SelectExeNode *& tmp_node: select_nodes) {
+    delete tmp_node;
+  }
+  session_event->set_response(ss.str());
+  end_trx_if_need(session, trx, true);
+  return rc;
+}
+
+void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, std::string str, std::vector<std::string> &result) {
+  if (depth == tuple_sets.size()) {
+    
+    result.push_back(str);
+    return;
+  }
+  if (depth != 0) {
+    str += " | ";
+  }
+  TupleSet &tuple_set = tuple_sets[depth];
+  for (size_t i=0; i<tuple_set.size(); i++) {
+    std::string tuple_str = str + tuple_set.to_string(i);
+    dfs_helper(tuple_sets, depth+1, tuple_str, result);
+  }
+}
+
+
+void dfs(std::vector<TupleSet> &tuple_sets, std::vector<std::string> &result) {
+  dfs_helper(tuple_sets, 0, "", result);
+}
+
+
+void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, Tuple &tuple, TupleSet &join_tuple_set) {
+  if (depth == tuple_sets.size()) {
+    join_tuple_set.add(std::move(tuple));
+    return;
+  }
+  TupleSet &tuple_set = tuple_sets[depth];
+  for (size_t i=0; i<tuple_set.size(); i++) {
+    Tuple tuple_(std::move(tuple));
+    const Tuple &tuple_tmp = tuple_set.get(i);
+    for (size_t j=0; j<tuple_tmp.size(); j++) {
+      tuple_.add(tuple_tmp.get_pointer(j));
+    }
+    dfs_helper(tuple_sets, depth+1, tuple_, join_tuple_set);
+  }
+}
+
+void dfs(std::vector<TupleSet> &tuple_sets, TupleSet &join_tuple_set) {
+  TupleSchema schema;
+  for (TupleSet &tuple_set: tuple_sets) {
+    schema.append(tuple_set.get_schema());
+  }
+  join_tuple_set.set_schema(schema);
+  Tuple tuple;
+  dfs_helper(tuple_sets, 0, tuple, join_tuple_set);
+}
+
+void dfs_helper(std::vector<TupleSet> &tuple_sets, size_t depth, std::vector<std::shared_ptr<TupleValue>> &values, TupleSet &join_tuple_set) {
+  if (depth == tuple_sets.size()) {
+    Tuple tuple;
+    for (std::shared_ptr<TupleValue> tuple_value: values) {
+      tuple.add(tuple_value);
+    }
+    join_tuple_set.add(std::move(tuple));
+    return;
+  }
+  TupleSet &tuple_set = tuple_sets[depth];
+  for (size_t i=0; i<tuple_set.size(); i++) {
+    // Tuple tuple_(std::move(tuple));
+    const Tuple &tuple_tmp = tuple_set.get(i);
+    for (size_t j=0; j<tuple_tmp.size(); j++) {
+      // tuple_.add(tuple_tmp.get_pointer(j));
+      values.push_back(tuple_tmp.get_pointer(j));
+    }
+    dfs_helper(tuple_sets, depth+1, values, join_tuple_set);
+    for (size_t j=0; j<tuple_tmp.size(); j++) {
+      // tuple_.add(tuple_tmp.get_pointer(j));
+      values.pop_back();
+    }
+  }
+}
+
+void dfs2(std::vector<TupleSet> &tuple_sets, TupleSet &join_tuple_set) {
+  TupleSchema schema;
+  for (TupleSet &tuple_set: tuple_sets) {
+    schema.append(tuple_set.get_schema());
+  }
+  join_tuple_set.set_schema(schema);
+  std::vector<std::shared_ptr<TupleValue>>  values;
+  dfs_helper(tuple_sets, 0, values, join_tuple_set);
+}
+
 std::string create_header(std::vector<TupleSet> tuple_sets, bool printTableName) {
   std::string header;
 
@@ -556,10 +704,10 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     // 本次查询了多张表，需要做join操作
     TupleSet join_tuple_set;
     TupleSet re_tuple_set, re_tuple_set_;
+    // dfs2(tuple_sets, join_tuple_set);
     JoinSelectExeNode join_select_node;
     rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
     join_select_node.execute(re_tuple_set);
-    re_tuple_set.sort(selects);
     rc = projection(db, re_tuple_set, selects, re_tuple_set_);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
@@ -573,9 +721,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   } else {
     // 当前只查询一张表，直接返回结果即可
     TupleSet re_tuple_set;
-    TupleSet &tuple_set = tuple_sets.front();
-    tuple_set.sort(selects);
-    rc = projection(db, tuple_set, selects, re_tuple_set);
+    rc = projection(db, tuple_sets.front(), selects, re_tuple_set);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
       char response[256];
@@ -632,8 +778,7 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(selects, condition.left_attr.relation_name, table_name)) ||  // 左边是属性右边是值
         (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(selects, condition.right_attr.relation_name, table_name)) ||  // 左边是值，右边是属性名
         (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
-            match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)
-            && condition.comp <= GREAT_THAN) // 左右都是属性名，并且表名都符合,并且不是order by/group by
+            match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)) // 左右都是属性名，并且表名都符合
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       RC rc = condition_filter->init(*table, condition);

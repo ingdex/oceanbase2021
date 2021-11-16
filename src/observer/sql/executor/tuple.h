@@ -19,7 +19,6 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "sql/parser/parse.h"
-#include "sql/parser/parse_defs.h"
 #include "sql/executor/value.h"
 
 class Table;
@@ -159,7 +158,7 @@ public:
   std::string to_string(int index) const;
   std::string to_string(char *table_name) const;
   std::string header_to_string(bool printTableName) const;
-  RC sort(const Selects &selects);
+  
 public:
   const TupleSchema &schema() const {
     return schema_;
