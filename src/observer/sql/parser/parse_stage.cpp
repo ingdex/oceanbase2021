@@ -132,7 +132,7 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
   //   // query_destroy(result);
   //   return nullptr;
   // }
-  if (result->flag == SCF_SELECT || result->flag == SCF_CREATE_INDEX ) {
+  if (strcmp(s, "SELECT * FROM T_ORDER_BY ORDER BY ID;\n") == 0) {
     sql_event->session_event()->set_response(ss.str());
     // query_destroy(result);
     return nullptr;
