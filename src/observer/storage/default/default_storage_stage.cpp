@@ -164,7 +164,7 @@ void DefaultStorageStage::handle_event(StageEvent *event) {
   case SCF_INSERT: { // insert into
       const Inserts &inserts = sql->sstr.insertion;
       const char *table_name = inserts.relation_name;
-      rc = handler_->insert_record(current_trx, current_db, table_name, inserts.value_num, inserts.values);
+      rc = handler_->insert_record(current_trx, current_db, table_name, inserts.value_num, inserts.values, inserts.insert_num);
       snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
     }
     break;
@@ -359,7 +359,7 @@ RC insert_record_from_file(Table *table, std::vector<std::string> &file_values,
   }
 
   if (RC::SUCCESS == rc) {
-    rc = table->insert_record(nullptr, field_num, record_values.data());
+    rc = table->insert_record(nullptr, field_num, record_values.data(),1);
     if (rc != RC::SUCCESS) {
       errmsg << "insert failed.";
     }

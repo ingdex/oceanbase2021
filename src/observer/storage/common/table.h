@@ -60,8 +60,8 @@ public:
    * @param base_dir 表所在的文件夹，表记录数据文件、索引数据文件存放位置
    */
   RC open(const char *meta_file, const char *base_dir);
-  
-  RC insert_record(Trx *trx, int value_num, const Value *values);
+
+  RC insert_record(Trx *trx, int value_num, const Value *values, int insert_num);
   RC update_record(Trx *trx, ConditionFilter *filter, const ConDesc *update_desc, int *updated_count);
   RC delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count);
 

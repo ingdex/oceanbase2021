@@ -231,25 +231,65 @@ RC Table::insert_record(Trx *trx, Record *record) {
   }
   return rc;
 }
-RC Table::insert_record(Trx *trx, int value_num, const Value *values) {
-  if (value_num <= 0 || nullptr == values ) {
+RC Table::insert_record(Trx *trx, int value_num, const Value *values, int insert_num) {
+  if (value_num <= 0 || nullptr == values || value_num % insert_num != 0) {
     LOG_ERROR("Invalid argument. value num=%d, values=%p", value_num, values);
     return RC::INVALID_ARGUMENT;
   }
 
-  char *record_data;
-  RC rc = make_record(value_num, values, record_data);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
-    return rc;
+  int value_size = value_num / insert_num;
+  Value *temp_value = new Value[value_size];
+  Record *temp_record = new Record[insert_num];
+  int value_index = 0;
+  int insert_counter = 0;
+  for (insert_counter = 0; insert_counter < insert_num; insert_counter++) {
+    for (int j = 0; j < value_size; value_index++, j++) {
+      temp_value[j] = values[value_index];
+    }
+    char *record_data;
+    RC rc = make_record(value_size, temp_value, record_data);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+      //return rc;
+      break;
+    }
+    temp_record[insert_counter].data = record_data;
+    // record.valid = true;
+    rc = insert_record(trx, &temp_record[insert_counter]);
+    delete[] record_data;
+    if (rc != RC::SUCCESS) {
+      break;
+    }
   }
 
-  Record record;
-  record.data = record_data;
-  // record.valid = true;
-  rc = insert_record(trx, &record);
-  delete[] record_data;
-  return rc;
+  //如果全部插入成功
+  if (insert_counter == insert_num) {
+    delete[] temp_value;
+    return RC::SUCCESS;
+  }
+  //如果有没插入成功的，删除之前插入成功的记录
+  else {
+    for (int i = 0; i < insert_counter; i++)
+      delete_record(trx, &temp_record[i]);
+    delete[] temp_value;
+    delete[] temp_record;
+    return RC::RECORD;
+  }
+
+  // char *record_data;
+  // RC rc = make_record(value_num, values, record_data);
+  // if (rc != RC::SUCCESS)
+  // {
+  //   LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+  //   return rc;
+  // }
+
+  // Record record;
+  // record.data = record_data;
+  // // record.valid = true;
+  // rc = insert_record(trx, &record);
+  // delete[] record_data;
+  // return rc;
 }
 
 const char *Table::name() const {
