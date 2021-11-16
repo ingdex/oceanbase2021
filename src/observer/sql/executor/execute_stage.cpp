@@ -378,32 +378,133 @@ AGGREGATION_TYPE is_aggregation_select(const char * attribute_name, char * &real
   if (attribute_name == nullptr) {
     return NOT_KNOWN;
   }
-  if (attribute_name[0] == 'M') {
-    if (attribute_name[1] == 'A' && attribute_name[2] == 'X' && attribute_name[3] == '*') {
+  if (attribute_name[0] == 'M' || attribute_name[0] == 'm') {
+    if ((attribute_name[1] == 'A' || attribute_name[1] == 'a') 
+      && (attribute_name[2] == 'X' || attribute_name[2] == 'x') 
+      && attribute_name[3] == '*') {
       size_t len = strlen(attribute_name) + 1 - 4;
       real_attribute_name = new char[len];
       strcpy(real_attribute_name, attribute_name+4);
       return MAX;
     }
-    if (attribute_name[1] == 'I' && attribute_name[2] == 'N' && attribute_name[3] == '*') {
+    if ((attribute_name[1] == 'I' || attribute_name[1] == 'i') 
+      && (attribute_name[2] == 'N' || attribute_name[2] == 'n') 
+      && attribute_name[3] == '*') {
       size_t len = strlen(attribute_name) + 1 - 4;
       real_attribute_name = new char[len];
       strcpy(real_attribute_name, attribute_name+4);
       return MIN;
     }
     return NOT_KNOWN;
-  } else if (attribute_name[0] == 'C' && attribute_name[1] == 'O' && attribute_name[2] == 'U' && attribute_name[3] == 'N' && attribute_name[4] == 'T' && attribute_name[5] == '*') {
+  } else if ((attribute_name[0] == 'C' || attribute_name[0] == 'c') 
+      && (attribute_name[1] == 'O' || attribute_name[1] == 'o') 
+      && (attribute_name[2] == 'U' || attribute_name[2] == 'u')
+      && (attribute_name[3] == 'N' || attribute_name[3] == 'n') 
+      && (attribute_name[4] == 'T' || attribute_name[4] == 't') 
+      && attribute_name[5] == '*') {
     size_t len = strlen(attribute_name) + 1 - 6;
     real_attribute_name = new char[len];
     strcpy(real_attribute_name, attribute_name+6);
-    return MAX;
-  } else if (attribute_name[0] == 'A' && attribute_name[1] == 'V' && attribute_name[2] == 'G' && attribute_name[3] == '*') {
+    return COUNT;
+  } else if ((attribute_name[0] == 'A' || attribute_name[0] == 'a') 
+      && (attribute_name[1] == 'V' || attribute_name[1] == 'v')
+      && (attribute_name[2] == 'G' || attribute_name[2] == 'g') 
+      && attribute_name[3] == '*') {
     size_t len = strlen(attribute_name) + 1 - 4;
     real_attribute_name = new char[len];
     strcpy(real_attribute_name, attribute_name+4);
     return AVG;
   }
   return NOT_KNOWN;
+}
+
+void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, int index) {
+  // const TupleValue &value_
+  
+  if (type == MAX) {
+    const std::shared_ptr<TupleValue> *p_value = nullptr;
+    for (size_t i=0; i<tuple_set.size(); i++) {
+      const Tuple &tuple_ = tuple_set.get(i);
+      const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+      if (p_value == nullptr) {
+        p_value = &value_;
+        continue;
+      }
+      int cmp = (*p_value)->compare(*value_);
+      if (cmp < 0) {
+        p_value = &value_;
+      }
+    }
+    if (p_value == nullptr) {
+      // todo: 使用null类型
+    } else {
+      tuple.add(*p_value);
+    }
+  } else if (type == MIN) {
+    const std::shared_ptr<TupleValue> *p_value = nullptr;
+    for (size_t i=0; i<tuple_set.size(); i++) {
+      const Tuple &tuple_ = tuple_set.get(i);
+      const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+      if (p_value == nullptr) {
+        p_value = &value_;
+        continue;
+      }
+      int cmp = (*p_value)->compare(*value_);
+      if (cmp > 0) {
+        p_value = &value_;
+      }
+    }
+    if (p_value == nullptr) {
+      // todo: 使用null类型
+    } else {
+      tuple.add(*p_value);
+    }
+  } else if (type == COUNT) {
+    const std::shared_ptr<TupleValue> *p_value = nullptr;
+    std::unordered_map<std::string, bool> value_exist_map;
+    int count = 0;
+    if (index == -1) {
+      count = tuple_set.size();
+    } else {
+      for (size_t i=0; i<tuple_set.size(); i++) {
+        const Tuple &tuple_ = tuple_set.get(i);
+        const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+        std::string str = value_->to_string();
+        if (value_exist_map.find(str) == value_exist_map.end()) {
+          count++;
+        }
+        value_exist_map[str] = true;
+      }
+    }
+    tuple.add(new IntValue(count));
+  } else if (type == AVG) {
+    if (tuple_set.size() == 0) {
+      // todo: 使用null类型
+      return;
+    }
+    const std::shared_ptr<TupleValue> *p_value = &(tuple_set.get(0).get_pointer(index));
+    AttrType type = (*p_value)->type();
+    float avg = 0;
+    if (type == INTS) {
+      avg = std::stof((*p_value)->to_string());
+    }
+    for (size_t i=1; i<tuple_set.size(); i++) {
+      const Tuple &tuple_ = tuple_set.get(i);
+      const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+      if (type == INTS) {
+        avg += std::stof(value_->to_string());
+      } else {
+        (*p_value)->add(*value_);
+      }
+    }
+    if (type == INTS) {
+      avg /= tuple_set.size();
+      tuple.add(new FloatValue(avg));
+    } else {
+      (*p_value)->divide(tuple_set.size());
+      tuple.add(*p_value);
+    }
+  }
 }
 
 RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, TupleSet &re_tuple_set) {
@@ -432,19 +533,24 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
       if (aggreation != NOT_KNOWN) {
         aggregation_flag = true;
         aggreations.push_back(aggreation);
-        const FieldMeta *field_meta = table->table_meta().field(real_relation_name);
-        if (nullptr == field_meta) {
-          LOG_WARN("No such field. %s.%s", table->name(), real_relation_name);
-          return RC::SCHEMA_FIELD_MISSING;
+        if (strcmp(real_relation_name, "*") == 0) {
+          indexs.push_back(-1);
+        } else {
+          const FieldMeta *field_meta = table->table_meta().field(real_relation_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("No such field. %s.%s", table->name(), real_relation_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          indexs.push_back(schema_all.index_of_field(table_name, real_relation_name));
+          // schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
         }
-        indexs.push_back(schema_all.index_of_field(table_name, real_relation_name));
-        schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+        
         continue;
       }
       if (strcmp(attr.attribute_name, "*") == 0) {
         skip_flag[table_name] = true;
         const TableMeta &table_meta = table->table_meta();
-        for (int i=0; i<table_meta.field_num()-table_meta.sys_field_num(); i++) {
+        for (int i=table_meta.sys_field_num(); i<table_meta.field_num(); i++) {
           const FieldMeta * field_meta = table_meta.field(i);
           indexs.push_back(schema_all.index_of_field(table->name(), field_meta->name()));
           schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
@@ -500,7 +606,17 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
       
     }
   }
-  
+  if (aggregation_flag) {
+    Tuple tuple_;
+    for (size_t i=0; i<indexs.size(); i++) {
+      int index = indexs[i];
+      AGGREGATION_TYPE type = aggreations[i];
+      get_tuple_value(tuple_set, tuple_, type, index);
+    }
+    re_tuple_set.set_aggregation_flag();
+    re_tuple_set.add(std::move(tuple_));
+    return RC::SUCCESS;
+  }
   re_tuple_set.set_schema(schema);
   const std::vector<Tuple> &tuples = tuple_set.tuples();
   for (const Tuple &tuple: tuples) {

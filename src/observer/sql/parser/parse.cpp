@@ -367,8 +367,10 @@ extern "C" int sql_parse(const char *st, Query  *sqls);
 RC parse(const char *st, Query *sqln) {
   sql_parse(st, sqln);
 
-  if (sqln->flag == SCF_ERROR)
+  if (sqln->flag == SCF_ERROR) {
+    sqln->sstr.errors = nullptr;
     return SQL_SYNTAX;
+  }
   else
     return SUCCESS;
 }

@@ -16,9 +16,10 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_SQL_EXECUTOR_VALUE_H_
 
 #include <string.h>
-
+#include <iomanip>
 #include <string>
 #include <ostream>
+#include "sql/parser/parse_defs.h"
 
 class TupleValue {
 public:
@@ -28,6 +29,9 @@ public:
   virtual void to_string(std::ostream &os) const = 0;
   virtual std::string to_string() const = 0;
   virtual int compare(const TupleValue &other) const = 0;
+  virtual void add(const TupleValue &other) = 0;
+  virtual void divide(const size_t x) = 0;
+  virtual AttrType type() const = 0;
 private:
 };
 
@@ -49,6 +53,21 @@ public:
     return value_ - int_other.value_;
   }
 
+  virtual void add(const TupleValue &other) override {
+    value_ += std::stoi(other.to_string());
+  }
+
+  virtual void divide(const size_t x) override {
+    if (x == 0) {
+      return;
+    }
+    value_ /= x;
+  }
+  
+  virtual AttrType type() const override {
+    return INTS;
+  }
+ 
 private:
   int value_;
 };
@@ -59,7 +78,7 @@ public:
   }
 
   void to_string(std::ostream &os) const override {
-    os << value_;
+    os << std::setprecision(3) << value_;
   }
 
   std::string to_string() const override {
@@ -76,6 +95,21 @@ public:
       return -1;
     }
     return 0;
+  }
+
+  virtual void add(const TupleValue &other) override {
+    value_ += std::stoi(other.to_string());
+  }
+
+  virtual void divide(const size_t x) override {
+    if (x == 0) {
+      return;
+    }
+    value_ /= x;
+  }
+
+  virtual AttrType type() const override {
+    return FLOATS;
   }
 private:
   float value_;
@@ -99,6 +133,18 @@ public:
   int compare(const TupleValue &other) const override {
     const StringValue &string_other = (const StringValue &)other;
     return strcmp(value_.c_str(), string_other.value_.c_str());
+  }
+
+  virtual void add(const TupleValue &other) override {
+    value_ += std::stoi(other.to_string());
+  }
+
+  virtual void divide(const size_t x) override {
+    return;
+  }
+
+  virtual AttrType type() const override {
+    return CHARS;
   }
 private:
   std::string value_;
