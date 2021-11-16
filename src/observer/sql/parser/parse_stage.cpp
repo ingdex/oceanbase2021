@@ -132,11 +132,11 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
   //   // query_destroy(result);
   //   return nullptr;
   // }
-  // if (result->flag == SCF_SELECT || result->flag == SCF_CREATE_INDEX ) {
-  //   sql_event->session_event()->set_response(ss.str());
-  //   // query_destroy(result);
-  //   return nullptr;
-  // }
+  if (result->flag == SCF_SELECT || result->flag == SCF_CREATE_INDEX ) {
+    sql_event->session_event()->set_response(ss.str());
+    // query_destroy(result);
+    return nullptr;
+  }
   if (ret != RC::SUCCESS) {
     // set error information to event
     // const char *error = result->sstr.errors != nullptr ? result->sstr.errors : "Unknown error";
