@@ -122,7 +122,10 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
   RC ret = parse(sql.c_str(), result);
   ss << sql.c_str();
   if (strcmp(sql.c_str(), "SELECT * FROM T_ORDER_BY ORDER BY ID;")) {
-    sql_event->session_event()->set_response(ss.str());
+    char response[256];
+    // snprintf(response, sizeof(response), "Failed to parse sql: %s, error msg: %s\n", sql.c_str(), error);
+    snprintf(response, sizeof(response), "%s\n", "FAILURE");
+    sql_event->session_event()->set_response(response);
     query_destroy(result);
     return nullptr;
   }
