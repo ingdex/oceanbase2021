@@ -437,6 +437,15 @@ select_attr:
 			relation_attr_init(&attr, NULL, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
+	| MAX LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(3 + 1 +strlen($5) +3));
+			strcpy(s, "MAX(");
+			strcat(s, $5);
+			strcat(s, ")");
+			relation_attr_init(&attr, $3, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
 	| MIN LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
 			char* s=malloc(sizeof(char)*(strlen($1)+strlen($3)+3));
@@ -447,6 +456,15 @@ select_attr:
 			relation_attr_init(&attr, NULL, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
+	| MAX LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(3 + 1 +strlen($5) +3));
+			strcpy(s, "MIN(");
+			strcat(s, $5);
+			strcat(s, ")");
+			relation_attr_init(&attr, $3, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
 	| COUNT LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
 			char* s=malloc(sizeof(char)*(strlen($1)+strlen($3)+3));
@@ -455,6 +473,16 @@ select_attr:
 			strcat(s, $3);
 			strcat(s, ")");
 			relation_attr_init(&attr, NULL, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(strlen($1)+strlen($5)+3));
+			strcpy(s, $1);
+			strcat(s, "(");
+			strcat(s, $5);
+			strcat(s, ")");
+			relation_attr_init(&attr, $3, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
 	| COUNT LBRACE STAR RBRACE aggregation_list {
@@ -476,18 +504,36 @@ select_attr:
 			relation_attr_init(&attr, NULL, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
+	| AVG LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(strlen($1)+strlen($5)+3));
+			strcpy(s, $1);
+			strcat(s, "(");
+			strcat(s, $5);
+			strcat(s, ")");
+			relation_attr_init(&attr, $3, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
     ; 
 
 aggregation_list:
 	/* empty */
 	| COMMA MAX LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($2)+strlen($4)+3));
-			strcpy(s, $2);
-			strcat(s, "(");
+			char* s=malloc(sizeof(char)*(3+strlen($4)+3));
+			strcpy(s, "MAX(");
 			strcat(s, $4);
 			strcat(s, ")");
 			relation_attr_init(&attr, NULL, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COMMA MAX LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(3+strlen($6)+3));
+			strcpy(s, "MAX(");
+			strcat(s, $6);
+			strcat(s, ")");
+			relation_attr_init(&attr, $4, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
 	| COMMA MAX LBRACE STAR RBRACE aggregation_list {
@@ -497,12 +543,20 @@ aggregation_list:
 	}
 	| COMMA MIN LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($2)+strlen($4)+3));
-			strcpy(s, $2);
-			strcat(s, "(");
+			char* s=malloc(sizeof(char)*(3+strlen($4)+3));
+			strcpy(s, "MIN(");
 			strcat(s, $4);
 			strcat(s, ")");
 			relation_attr_init(&attr, NULL, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COMMA MIN LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(3+strlen($6)+3));
+			strcpy(s, "MIN(");
+			strcat(s, $6);
+			strcat(s, ")");
+			relation_attr_init(&attr, $4, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
 	| COMMA MIN LBRACE STAR RBRACE aggregation_list {
@@ -512,12 +566,20 @@ aggregation_list:
 	}
 	| COMMA COUNT LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($2)+strlen($4)+3));
-			strcpy(s, $2);
-			strcat(s, "(");
+			char* s=malloc(sizeof(char)*(5+strlen($4)+3));
+			strcpy(s, "COUNT(");
 			strcat(s, $4);
 			strcat(s, ")");
 			relation_attr_init(&attr, NULL, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COMMA COUNT LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(5+strlen($6)+3));
+			strcpy(s, "COUNT(");
+			strcat(s, $6);
+			strcat(s, ")");
+			relation_attr_init(&attr, $4, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
 	| COMMA COUNT LBRACE STAR RBRACE aggregation_list {
@@ -527,12 +589,20 @@ aggregation_list:
 	}
 	| COMMA AVG LBRACE ID RBRACE aggregation_list {
 			RelAttr attr;
-			char* s=malloc(sizeof(char)*(strlen($2)+strlen($4)+3));
-			strcpy(s, $2);
-			strcat(s, "(");
+			char* s=malloc(sizeof(char)*(3+strlen($4)+3));
+			strcpy(s, "AVG(");
 			strcat(s, $4);
 			strcat(s, ")");
 			relation_attr_init(&attr, NULL, s);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COMMA AVG LBRACE ID DOT ID RBRACE aggregation_list {
+			RelAttr attr;
+			char* s=malloc(sizeof(char)*(3+strlen($6)+3));
+			strcpy(s, "AVG(");
+			strcat(s, $6);
+			strcat(s, ")");
+			relation_attr_init(&attr, $4, s);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
 	| COMMA AVG LBRACE STAR RBRACE aggregation_list {
