@@ -381,18 +381,20 @@ AGGREGATION_TYPE is_aggregation_select(const char * attribute_name, char * &real
   if (attribute_name[0] == 'M' || attribute_name[0] == 'm') {
     if ((attribute_name[1] == 'A' || attribute_name[1] == 'a') 
       && (attribute_name[2] == 'X' || attribute_name[2] == 'x') 
-      && attribute_name[3] == '*') {
+      && attribute_name[3] == '(') {
       size_t len = strlen(attribute_name) + 1 - 4;
       real_attribute_name = new char[len];
       strcpy(real_attribute_name, attribute_name+4);
+      real_attribute_name[len-2] = '\0';
       return MAX;
     }
     if ((attribute_name[1] == 'I' || attribute_name[1] == 'i') 
       && (attribute_name[2] == 'N' || attribute_name[2] == 'n') 
-      && attribute_name[3] == '*') {
+      && attribute_name[3] == '(') {
       size_t len = strlen(attribute_name) + 1 - 4;
       real_attribute_name = new char[len];
       strcpy(real_attribute_name, attribute_name+4);
+      real_attribute_name[len-2] = '\0';
       return MIN;
     }
     return NOT_KNOWN;
@@ -401,18 +403,20 @@ AGGREGATION_TYPE is_aggregation_select(const char * attribute_name, char * &real
       && (attribute_name[2] == 'U' || attribute_name[2] == 'u')
       && (attribute_name[3] == 'N' || attribute_name[3] == 'n') 
       && (attribute_name[4] == 'T' || attribute_name[4] == 't') 
-      && attribute_name[5] == '*') {
+      && attribute_name[5] == '(') {
     size_t len = strlen(attribute_name) + 1 - 6;
     real_attribute_name = new char[len];
     strcpy(real_attribute_name, attribute_name+6);
+    real_attribute_name[len-2] = '\0';
     return COUNT;
   } else if ((attribute_name[0] == 'A' || attribute_name[0] == 'a') 
       && (attribute_name[1] == 'V' || attribute_name[1] == 'v')
       && (attribute_name[2] == 'G' || attribute_name[2] == 'g') 
-      && attribute_name[3] == '*') {
+      && attribute_name[3] == '(') {
     size_t len = strlen(attribute_name) + 1 - 4;
     real_attribute_name = new char[len];
     strcpy(real_attribute_name, attribute_name+4);
+    real_attribute_name[len-2] = '\0';
     return AVG;
   }
   return NOT_KNOWN;
@@ -535,6 +539,7 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
         aggreations.push_back(aggreation);
         if (strcmp(real_relation_name, "*") == 0) {
           indexs.push_back(-1);
+          schema.add_if_not_exists(INTS, "*", attr.attribute_name);
         } else {
           const FieldMeta *field_meta = table->table_meta().field(real_relation_name);
           if (nullptr == field_meta) {
@@ -542,7 +547,7 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
             return RC::SCHEMA_FIELD_MISSING;
           }
           indexs.push_back(schema_all.index_of_field(table_name, real_relation_name));
-          // schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+          schema.add_if_not_exists(field_meta->type(), table_name, attr.attribute_name);
         }
         
         continue;
@@ -613,7 +618,8 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
       AGGREGATION_TYPE type = aggreations[i];
       get_tuple_value(tuple_set, tuple_, type, index);
     }
-    re_tuple_set.set_aggregation_flag();
+    re_tuple_set.set_schema(schema);
+    // re_tuple_set.set_aggregation_flag();
     re_tuple_set.add(std::move(tuple_));
     return RC::SUCCESS;
   }
