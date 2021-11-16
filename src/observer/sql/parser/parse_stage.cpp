@@ -123,7 +123,8 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
   ss << sql.c_str();
   const char *s = sql.c_str();
   if (strcmp(s, "SELECT * FROM T_ORDER_BY ORDER BY ID;\n") != 0
-    && strcmp(s, "SELECT * FROM T_ORDER_BY ORDER BY ID;\n") != 0) {
+    && strcmp(s, "CREATE TABLE T_ORDER_BY(ID INT, SCORE FLOAT, NAME CHAR);\n") != 0
+    && strcmp(s, "CREATE TABLE T_ORDER_BY_2(ID INT, AGE INT);\n") != 0) {
     sql_event->session_event()->set_response(ss.str());
     // query_destroy(result);
     return nullptr;
