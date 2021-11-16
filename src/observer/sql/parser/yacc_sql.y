@@ -68,6 +68,7 @@ ParserContext *get_context(yyscan_t scanner)
         TABLES
         INDEX
         SELECT
+		ASC
         DESC
         SHOW
         SYNC
@@ -105,6 +106,9 @@ ParserContext *get_context(yyscan_t scanner)
         NE
 		INNER
 		JOIN
+		ORDER
+		BY
+
 
 %union {
   struct _Attr *attr;
