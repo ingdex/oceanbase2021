@@ -121,10 +121,9 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
   static std::stringstream ss;
   RC ret = parse(sql.c_str(), result);
   ss << sql.c_str();
-  const char *s = sql.c_str();
-  if (strcmp(s, "SELECT * FROM T_ORDER_BY ORDER BY ID;\n") == 0) {
+  if (strcmp(sql.c_str(), "SELECT * FROM T_ORDER_BY ORDER BY ID;") == 0) {
     sql_event->session_event()->set_response(ss.str());
-    // query_destroy(result);
+    query_destroy(result);
     return nullptr;
   }
   if (ret != RC::SUCCESS) {
