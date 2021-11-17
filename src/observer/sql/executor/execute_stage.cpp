@@ -708,7 +708,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     JoinSelectExeNode join_select_node;
     rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
     join_select_node.execute(re_tuple_set);
-    // re_tuple_set.sort(selects);
+    re_tuple_set.sort(selects);
     rc = projection(db, re_tuple_set, selects, re_tuple_set_);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
@@ -723,7 +723,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     // 当前只查询一张表，直接返回结果即可
     TupleSet re_tuple_set;
     TupleSet &tuple_set = tuple_sets.front();
-    // tuple_set.sort(selects);
+    tuple_set.sort(selects);
     rc = projection(db, tuple_set, selects, re_tuple_set);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
