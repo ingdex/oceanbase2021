@@ -723,7 +723,14 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     // 当前只查询一张表，直接返回结果即可
     TupleSet re_tuple_set;
     TupleSet &tuple_set = tuple_sets.front();
-    tuple_set.sort(selects);
+    rc = tuple_set.sort(selects);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("sort error");
+      char response[256];
+      snprintf(response, sizeof(response), "%s\n", "FAILURE");
+      session_event->set_response(response);
+      return RC::GENERIC_ERROR;
+    }
     rc = projection(db, tuple_set, selects, re_tuple_set);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
