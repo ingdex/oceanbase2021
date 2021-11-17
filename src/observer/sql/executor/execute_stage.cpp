@@ -750,7 +750,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     TupleSet re_tuple_set;
     TupleSet &tuple_set = tuple_sets.front();
     if (has_order_by(selects)) {
-      rc = re_tuple_set.sort(selects);
+      rc = tuple_set.sort(selects);
       if (rc != RC::SUCCESS) {
         session_event->set_response(session_event->get_request_buf());
         return RC::GENERIC_ERROR;
