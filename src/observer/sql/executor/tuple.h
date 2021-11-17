@@ -131,7 +131,7 @@ class TupleSet {
 public:
   TupleSet() = default;
   TupleSet(TupleSet &&other);
-  explicit TupleSet(const TupleSchema &schema) : schema_(schema), aggregation_flag(false) {
+  explicit TupleSet(const TupleSchema &schema) : schema_(schema) {
   }
   TupleSet &operator =(TupleSet &&other);
 
@@ -144,7 +144,7 @@ public:
   void add(Tuple && tuple);
   void add_(const Tuple &tuple);
 
-  void set_aggregation_flag();
+  // void set_aggregation_flag();
   
   void clear();
 
@@ -166,7 +166,7 @@ public:
 private:
   std::vector<Tuple> tuples_;
   TupleSchema schema_;
-  bool aggregation_flag;
+  // bool aggregation_flag;
 };
 
 class TupleRecordConverter {

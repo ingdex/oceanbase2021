@@ -170,7 +170,7 @@ void TupleSchema::print(std::ostream &os, bool print_table_name) const {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-TupleSet::TupleSet(TupleSet &&other) : tuples_(std::move(other.tuples_)), schema_(other.schema_), aggregation_flag(other.aggregation_flag){
+TupleSet::TupleSet(TupleSet &&other) : tuples_(std::move(other.tuples_)), schema_(other.schema_){
   other.schema_.clear();
 }
 
@@ -186,7 +186,7 @@ TupleSet &TupleSet::operator=(TupleSet &&other) {
   tuples_.clear();
   tuples_.swap(other.tuples_);
 
-  aggregation_flag = other.aggregation_flag;
+  // aggregation_flag = other.aggregation_flag;
   return *this;
 }
 
@@ -203,12 +203,12 @@ void TupleSet::clear() {
   schema_.clear();
 }
 
-void TupleSet::set_aggregation_flag() {
-  aggregation_flag = true;
-}
+// void TupleSet::set_aggregation_flag() {
+//   aggregation_flag = true;
+// }
 
 void TupleSet::print(std::ostream &os) const {
-  if (!aggregation_flag && schema_.fields().empty()) {
+  if (schema_.fields().empty()) {
     LOG_WARN("Got empty schema");
     return;
   }
