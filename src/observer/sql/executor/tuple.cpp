@@ -373,6 +373,7 @@ RC TupleSet::sort(const Selects &selects) {
     }
 
   }
+  return RC::SUCCESS;
 }
 
 const TupleSchema &TupleSet::get_schema() const {
