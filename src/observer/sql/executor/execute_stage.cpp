@@ -723,8 +723,6 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
     join_select_node.execute(re_tuple_set);
     if (has_order_by(selects)) {
-      session_event->set_response(session_event->get_request_buf());
-      return RC::GENERIC_ERROR;
       rc = re_tuple_set.sort(selects);
       if (rc != RC::SUCCESS) {
         LOG_ERROR("sort error");
