@@ -212,9 +212,7 @@ void TupleSet::print(std::ostream &os) const {
     LOG_WARN("Got empty schema");
     return;
   }
-  if (!aggregation_flag) {
-    schema_.print(os);
-  }
+  schema_.print(os);
   
   for (const Tuple &item : tuples_) {
     const std::vector<std::shared_ptr<TupleValue>> &values = item.values();
