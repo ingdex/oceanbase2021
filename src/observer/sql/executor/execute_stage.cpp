@@ -636,6 +636,20 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
   return RC::SUCCESS;
 }
 
+bool has_order_by(const Selects &selects) {
+  for (size_t i = 0; i < selects.condition_num; i++) {
+    const Condition &condition = selects.conditions[i];
+    CompOp compop = condition.comp;
+
+    if (compop == ORDER_BY_ASC || compop == ORDER_BY_DESC) {
+      return true;
+    } 
+
+  }
+  return false;
+
+}
+
 // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
 // 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
 RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_event) {
@@ -708,6 +722,16 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     JoinSelectExeNode join_select_node;
     rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
     join_select_node.execute(re_tuple_set);
+    if (has_order_by(selects)) {
+      rc = re_tuple_set.sort(selects);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("sort error");
+        char response[256];
+        snprintf(response, sizeof(response), "%s\n", "FAILURE");
+        session_event->set_response(response);
+        return RC::GENERIC_ERROR;
+      }
+    }
     // re_tuple_set.sort(selects);
     rc = projection(db, re_tuple_set, selects, re_tuple_set_);
     if (rc != RC::SUCCESS) {
@@ -723,14 +747,17 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     // 当前只查询一张表，直接返回结果即可
     TupleSet re_tuple_set;
     TupleSet &tuple_set = tuple_sets.front();
-    rc = tuple_set.sort(selects);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("sort error");
-      char response[256];
-      snprintf(response, sizeof(response), "%s\n", "FAILURE");
-      session_event->set_response(response);
-      return RC::GENERIC_ERROR;
+    if (has_order_by(selects)) {
+      rc = re_tuple_set.sort(selects);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("sort error");
+        char response[256];
+        snprintf(response, sizeof(response), "%s\n", "FAILURE");
+        session_event->set_response(response);
+        return RC::GENERIC_ERROR;
+      }
     }
+    
     rc = projection(db, tuple_set, selects, re_tuple_set);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
