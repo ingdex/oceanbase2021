@@ -295,7 +295,7 @@ std::string TupleSet::header_to_string(bool printTableName) const {
 
 RC TupleSet::sort(const Selects &selects) {
   for (size_t i = 0; i < selects.condition_num; i++) {
-    Condition condition = selects.conditions[i];
+    const Condition &condition = selects.conditions[i];
     CompOp compop = condition.comp;
 
     if (compop == ORDER_BY_ASC) {
