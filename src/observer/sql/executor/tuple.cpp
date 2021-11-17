@@ -293,8 +293,36 @@ std::string TupleSet::header_to_string(bool printTableName) const {
   return re;
 }
 
+bool compare_tuple( Tuple *tuple_p1, Tuple *tuple_p2, std::vector<int> &indexs, std::vector<int> &orders) {
+  for (int index:indexs) {
+    int cmp = tuple_p1->get_pointer(index)->compare(*(tuple_p2->get_pointer(index)));
+    if (orders[index] > 0) {
+      if (cmp > 0) {
+        return true;
+      } else if (cmp < 0) {
+        return false;
+      } else {
+        continue;
+      }
+    } else {
+      if (cmp < 0) {
+        return true;
+      } else if (cmp > 0) {
+        return false;
+      } else {
+        continue;
+      }
+    }
+  }
+  return false;
+}
+
 RC TupleSet::sort(const Selects &selects) {
-  for (size_t i = 0; i < selects.condition_num; i++) {
+  std::vector<int> indexs;
+  std::vector<int> orders;
+
+  for (int i = selects.condition_num - 1; i >= 0; i--)
+  {
     const Condition &condition = selects.conditions[i];
     CompOp compop = condition.comp;
 
@@ -310,33 +338,11 @@ RC TupleSet::sort(const Selects &selects) {
       } else {
         compare_index = schema_.index_of_field(left_attr.relation_name, left_attr.attribute_name);
       }
-       
       if (compare_index == -1) {
         return RC::SCHEMA_FIELD_MISSING;
       }
-      for (size_t j=0; j<tuples_.size(); j++) {
-        size_t min = j;
-        Tuple *tuple_p1 = &tuples_[min];
-        Tuple *tuple_p2 = nullptr;
-        for (size_t k=j+1; k<tuples_.size(); k++) {
-          tuple_p2 = &tuples_[k];
-          if (tuple_p1->get_pointer(compare_index)->compare(tuple_p2->get(compare_index)) > 0) {
-            min = k;
-            tuple_p1 = &tuples_[min];
-          }
-        }
-        if (min != j) {
-          tuple_p2 = &tuples_[j];
-          Tuple tmp = std::move(tuples_[min]);
-          tuples_[min] = std::move(tuples_[j]);
-          tuples_[j] = std::move(tmp);
-          // tuples_.insert(tuples_.begin() + min, std::move(tuples_[j]));
-          // tuples_.insert(tuples_.begin() + j, std::move(tuples_[min+1]));
-          // tuples_.erase(tuples_.begin() + j+1);
-          // // tuples_.insert(tuples_.begin() + j, std::move(tuples_[min]));
-          // tuples_.erase(tuples_.begin() + min+1);
-        }
-      }
+      indexs.push_back(compare_index);
+      orders.push_back(1);
     } else if (compop == ORDER_BY_DESC) {
       const RelAttr &left_attr = condition.left_attr;
       int compare_index = -1;
@@ -352,26 +358,30 @@ RC TupleSet::sort(const Selects &selects) {
       if (compare_index == -1) {
         return RC::GENERIC_ERROR;
       }
-      for (size_t j=0; j<tuples_.size(); j++) {
-        size_t max = j;
-        Tuple *tuple_p1 = &tuples_[max];
-        Tuple *tuple_p2 = nullptr;
-        for (size_t k=j+1; k<tuples_.size(); k++) {
-          tuple_p2 = &tuples_[k];
-          if (tuple_p1->get_pointer(compare_index)->compare(tuple_p2->get(compare_index)) < 0) {
-            max = k;
-            tuple_p1 = &tuples_[max];
-          }
-        }
-        if (max != j) {
-          tuple_p2 = &tuples_[j];
-          Tuple tmp = std::move(tuples_[max]);
-          tuples_[max] = std::move(tuples_[j]);
-          tuples_[j] = std::move(tmp);
-        }
+      indexs.push_back(compare_index);
+      orders.push_back(-1);
+    }
+  }
+  for (size_t j = 0; j < tuples_.size(); j++) {
+    size_t min = j;
+    Tuple *tuple_p1 = &tuples_[min];
+    Tuple *tuple_p2 = nullptr;
+    for (size_t k = j + 1; k < tuples_.size(); k++)
+    {
+      tuple_p2 = &tuples_[k];
+      if (compare_tuple(tuple_p1, tuple_p2, indexs, orders))
+      {
+        min = k;
+        tuple_p1 = &tuples_[min];
       }
     }
-
+    if (min != j)
+    {
+      tuple_p2 = &tuples_[j];
+      Tuple tmp = std::move(tuples_[min]);
+      tuples_[min] = std::move(tuples_[j]);
+      tuples_[j] = std::move(tmp);
+    }
   }
   return RC::SUCCESS;
 }
