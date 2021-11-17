@@ -708,6 +708,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     JoinSelectExeNode join_select_node;
     rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
     join_select_node.execute(re_tuple_set);
+    re_tuple_set.sort(selects);
     rc = projection(db, re_tuple_set, selects, re_tuple_set_);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
@@ -721,7 +722,9 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   } else {
     // 当前只查询一张表，直接返回结果即可
     TupleSet re_tuple_set;
-    rc = projection(db, tuple_sets.front(), selects, re_tuple_set);
+    TupleSet &tuple_set = tuple_sets.front();
+    tuple_set.sort(selects);
+    rc = projection(db, tuple_set, selects, re_tuple_set);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("projection error");
       char response[256];
@@ -778,7 +781,8 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(selects, condition.left_attr.relation_name, table_name)) ||  // 左边是属性右边是值
         (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(selects, condition.right_attr.relation_name, table_name)) ||  // 左边是值，右边是属性名
         (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
-            match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)) // 左右都是属性名，并且表名都符合
+            match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)
+            && condition.comp != ORDER_BY_ASC &&  condition.comp != ORDER_BY_DESC) // 左右都是属性名，并且表名都符合
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       RC rc = condition_filter->init(*table, condition);

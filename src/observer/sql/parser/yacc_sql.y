@@ -363,7 +363,7 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where SEMICOLON
+    SELECT select_attr FROM ID rel_list where order_by SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
@@ -574,6 +574,99 @@ where:
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
 			}
     ;
+
+order_by:
+	/* empty */ 
+    | ORDER BY ID order_by_list {	
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $3);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	| ORDER BY ID ASC order_by_list {	
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $3);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	| ORDER BY ID DESC order_by_list {	
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $3);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_DESC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	| ORDER BY ID DOT ID order_by_list {	
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, $3, $5);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+			}
+	| ORDER BY ID DOT ID ASC order_by_list {	
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, $3, $5);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+			}
+	| ORDER BY ID DOT ID DESC order_by_list {	
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, $3, $5);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_DESC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+			}
+    ;
+
+order_by_list:
+	/* empty */ 
+    |COMMA ID order_by_list{
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $2);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|COMMA ID ASC order_by_list{
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $2);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|COMMA ID DESC order_by_list{
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $2);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_DESC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|COMMA ID DOT ID order_by_list{
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, $2, $4);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|COMMA ID DOT ID ASC order_by_list{
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, $2, $4);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_ASC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|COMMA ID DOT ID DESC order_by_list{
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, $2, $4);
+			Condition condition;
+			condition_init(&condition, ORDER_BY_DESC, 1, &left_attr, NULL, 1, &left_attr, NULL);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	;
+
 condition_list:
     /* empty */
     | AND condition condition_list {
