@@ -294,9 +294,9 @@ std::string TupleSet::header_to_string(bool printTableName) const {
 }
 
 bool compare_tuple( Tuple *tuple_p1, Tuple *tuple_p2, std::vector<int> &indexs, std::vector<int> &orders) {
-  for (int index:indexs) {
-    int cmp = tuple_p1->get_pointer(index)->compare(*(tuple_p2->get_pointer(index)));
-    if (orders[index] > 0) {
+  for (int i = 0; i<indexs.size(); i++) {
+    int cmp = tuple_p1->get_pointer(indexs[i])->compare(*(tuple_p2->get_pointer(indexs[i])));
+    if (orders[i] > 0) {
       if (cmp > 0) {
         return true;
       } else if (cmp < 0) {
