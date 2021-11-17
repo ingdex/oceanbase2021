@@ -19,3 +19,8 @@ RC Index::init(const IndexMeta &index_meta, const FieldMeta &field_meta) {
   field_meta_ = field_meta;
   return RC::SUCCESS;
 }
+
+RC Index::init_unique(const bool unique) {
+  unique_ = unique;
+  return RC::SUCCESS;
+}

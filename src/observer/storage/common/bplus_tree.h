@@ -89,6 +89,12 @@ public:
    */
   RC get_entry(const char *pkey, RID *rid);
 
+  /**
+   * 获取指定值的record
+   * @param rid  返回值，记录记录所在的页面号和slot
+   */
+  RC search_key(const char *pkey, RID *rid);
+
   RC sync();
 public:
   RC print();

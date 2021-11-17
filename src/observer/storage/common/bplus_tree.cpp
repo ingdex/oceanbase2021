@@ -908,6 +908,51 @@ RC BplusTreeHandler::get_entry(const char *pkey,RID *rid) {
   return RC::RECORD_INVALID_KEY;
 }
 
+RC BplusTreeHandler::search_key(const char *pkey,RID *rid) {
+  RC rc;
+  PageNum leaf_page;
+  BPPageHandle page_handle;
+  int i;
+  char *pdata,*key;
+  IndexNode *leaf;
+
+  key=(char *)malloc(file_header_.key_length);
+  if(key == nullptr){
+    LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
+    return RC::NOMEM;
+  }
+  memcpy(key,pkey,file_header_.attr_length);
+  memcpy(key+file_header_.attr_length,rid,sizeof(RID));
+
+  rc=find_leaf(key,&leaf_page);
+  if(rc!=SUCCESS){
+    free(key);
+    return rc;
+  }
+
+  rc = disk_buffer_pool_->get_this_page(file_id_, leaf_page, &page_handle);
+  if(rc!=SUCCESS){
+    free(key);
+    return rc;
+  }
+  rc = disk_buffer_pool_->get_data(&page_handle, &pdata);
+  if(rc!=SUCCESS){
+    free(key);
+    return rc;
+  }
+
+  leaf = get_index_node(pdata);
+  for(i=0;i<leaf->key_num;i++){
+    if(CompareKey(key,leaf->keys+(i*file_header_.key_length),file_header_.attr_type, file_header_.attr_length)==0){
+      memcpy(rid,leaf->rids+i,sizeof(RID));
+      free(key);
+      return SUCCESS;
+    }
+  }
+  free(key);
+  return RC::RECORD_INVALID_KEY;
+}
+
 RC BplusTreeHandler::delete_entry_from_node(PageNum node_page,const char *pkey) {
   BPPageHandle page_handle;
   IndexNode *node;

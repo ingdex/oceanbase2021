@@ -52,10 +52,12 @@ public:
 
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
+  RC init_unique(const bool unique);
 
 protected:
   IndexMeta   index_meta_;
   FieldMeta   field_meta_;    /// 当前实现仅考虑一个字段的索引
+  bool        unique_;         /// 是否为唯一索引
 };
 
 class IndexScanner {
