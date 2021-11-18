@@ -112,6 +112,7 @@ ParserContext *get_context(yyscan_t scanner)
 		GROUP
 		BY
 		UNIQUE
+		TEXT_T
 
 
 %union {
@@ -279,6 +280,13 @@ attr_def:
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type=$2;  
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length=4; // default attribute length
+			CONTEXT->value_length++;
+		}
+	|ID_get TEXT_T
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, CHARS, 4096);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			CONTEXT->value_length++;
 		}
     ;
