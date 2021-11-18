@@ -78,7 +78,24 @@ public:
   }
 
   void to_string(std::ostream &os) const override {
-    os << std::setprecision(3) << value_;
+    std::string str = this->to_string();
+    size_t dot_pos = str.find('.');
+    if (dot_pos == std::string::npos) {
+      os << str;
+      return;
+    }
+    std::string zhengshu = str.substr(0, dot_pos);
+    // std::string xiaoshu = str.substr(dot_pos);
+    // if (xiaoshu.size() <= 2) {
+    //   if (xiaoshu[0] == '0' && xiaoshu[1] == '0') {
+    //     os << zhengshu;
+    //     return;
+    //   }
+    //   os << zhengshu << '.' << xiaoshu;
+    //   return;
+    // }
+
+    os << std::setprecision(zhengshu.size() + 2) << value_;
   }
 
   std::string to_string() const override {
