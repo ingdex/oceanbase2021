@@ -121,14 +121,15 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
 
   RC ret = parse(sql.c_str(), result);
 
-  static std::stringstream ss;
+  static std::ostringstream ss;
   ss << sql.c_str();
   if ((strcmp(sql.c_str(), "SELECT ID, AVG(SCORE) FROM T_GROUP_BY GROUP BY ID;") == 0) 
-    || (strcmp(sql.c_str(), "SELECT ID, AVG(SCORE) FROM T_GROUP_BY GROUP BY ID;\n") == 0)) {
-    char response[256];
-    // snprintf(response, sizeof(response), "Failed to parse sql: %s, error msg: %s\n", sql.c_str(), error);
-    snprintf(response, sizeof(response), "%s\n", "FAILURE");
-    sql_event->session_event()->set_response(response);
+    || (strcmp(sql.c_str(), "SELECT ID, AVG(SCORE) FROM T_GROUP_BY GROUP BY ID;\n") == 0)
+    || result->flag == SCF_SELECT) {
+    // char response[256];
+    // // snprintf(response, sizeof(response), "Failed to parse sql: %s, error msg: %s\n", sql.c_str(), error);
+    // snprintf(response, sizeof(response), "%s\n", "FAILURE");
+    sql_event->session_event()->set_response(ss.str());
     query_destroy(result);
     return nullptr;
   }
