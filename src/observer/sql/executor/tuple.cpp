@@ -153,7 +153,7 @@ void TupleSchema::print(std::ostream &os) const {
 bool is_aggregation_schema(const char *attribute_name, char *&aggregation_filed, char *&field_name) {
   
   if (attribute_name == nullptr) {
-    return;
+    return false;
   }
   if (attribute_name[0] == 'M' || attribute_name[0] == 'm') {
     if ((attribute_name[1] == 'A' || attribute_name[1] == 'a') 
