@@ -130,7 +130,7 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
     // // snprintf(response, sizeof(response), "Failed to parse sql: %s, error msg: %s\n", sql.c_str(), error);
     // snprintf(response, sizeof(response), "%s\n", "FAILURE");
     sql_event->session_event()->set_response(ss.str());
-    query_destroy(result);
+    // query_destroy(result);
     return nullptr;
   }
   if (ret != RC::SUCCESS) {
