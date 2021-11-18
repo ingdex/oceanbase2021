@@ -138,13 +138,13 @@ void TupleSchema::print(std::ostream &os) const {
 
   for (std::vector<TupleField>::const_iterator iter = fields_.begin(), end = --fields_.end();
        iter != end; ++iter) {
-    if (table_names.size() > 1) {
+    if (table_names.size() > 1  && (strcmp("*", iter->table_name()) != 0)) {
       os << iter->table_name() << ".";
     }
     os << iter->field_name() << " | ";
   }
 
-  if (table_names.size() > 1) {
+  if ((table_names.size() > 1) && (strcmp("*", fields_.back().table_name()) != 0)) {
     os << fields_.back().table_name() << ".";
   }
   os << fields_.back().field_name() << std::endl;
@@ -157,13 +157,13 @@ void TupleSchema::print(std::ostream &os, bool print_table_name) const {
 
   for (std::vector<TupleField>::const_iterator iter = fields_.begin(), end = --fields_.end();
        iter != end; ++iter) {
-    if (print_table_name) {
+    if (print_table_name && (strcmp("*", iter->table_name()) != 0)) {
       os << iter->table_name() << ".";
     }
     os << iter->field_name() << " | ";
   }
 
-  if (print_table_name) {
+  if (print_table_name && (strcmp("*", fields_.back().table_name()) != 0)) {
     os << fields_.back().table_name() << ".";
   }
   os << fields_.back().field_name() << std::endl;
@@ -195,7 +195,11 @@ void TupleSet::add(Tuple &&tuple) {
 }
 
 void TupleSet::add_(const Tuple &tuple) {
-  tuples_.emplace_back(std::move(tuple));
+  Tuple tuple_;
+  for (int i=0; i<tuple.size(); i++) {
+    tuple_.add(tuple.get_pointer(i));
+  }
+  tuples_.emplace_back(std::move(tuple_));
 }
 
 void TupleSet::clear() {

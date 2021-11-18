@@ -422,7 +422,7 @@ AGGREGATION_TYPE is_aggregation_select(const char * attribute_name, char * &real
   return NOT_KNOWN;
 }
 
-void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, int index) {
+void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, int index, std::vector<int> &group_by_list, bool add_group_by_value) {
   // const TupleValue &value_
   
   if (type == MAX) {
@@ -510,6 +510,70 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       tuple.add(*p_value);
     }
   }
+  if (group_by_list.size() > 0 && tuple_set.size() > 0 && add_group_by_value) {
+    const Tuple &tuple_ = tuple_set.get(0);
+    // tuple.add(tuple_.get_pointer)
+    for (int i=0; i<group_by_list.size(); i++) {
+      tuple.add(tuple_.get_pointer(group_by_list[i]));
+    }
+  }
+}
+
+bool same_tuple(const Tuple &tuple_1, const Tuple &tuple_2, std::vector<int> &indexs) {
+  if (indexs.size() == 0) {
+    return true;
+  }
+  for (int i = 0; i<indexs.size(); i++) {
+    int cmp = tuple_1.get_pointer(indexs[i])->compare(*(tuple_2.get_pointer(indexs[i])));
+    if (cmp != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void split_tuple_set(TupleSet &tuple_set, std::vector<int> &group_by_list, std::vector<TupleSet> &split_tuple_sets) {
+  const std::vector<Tuple> &tuples = tuple_set.tuples();
+  for (size_t i=0; i<tuple_set.size(); i++) {
+    // const Tuple *tuple = &(tuples[i]);
+    const Tuple &tuple = tuple_set.get(i);
+    bool flag = true;
+    for (size_t j=0; j<split_tuple_sets.size(); j++) {
+      TupleSet &tuple_set_ = split_tuple_sets[j];
+      const Tuple &tuple_ = tuple_set_.get(0);
+      if (same_tuple(tuple, tuple_, group_by_list) == true) {
+        tuple_set_.add_(tuple);
+        flag = false;
+      }
+    }
+    if (flag) {
+      TupleSet tuple_set_;
+      tuple_set_.add_(tuple);
+      split_tuple_sets.push_back(std::move(tuple_set_));
+    }
+  }
+}
+
+bool has_aggregation_select(const Selects &selects) {
+  for (int i = selects.attr_num - 1; i >= 0; i--) {
+    const RelAttr &attr = selects.attributes[i];
+    char *real_attribute_name;
+    AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_attribute_name);
+    if (aggreation != NOT_KNOWN) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const char *get_attribute_name_from_aggregation(const char *aggregation_str) {
+  std::string str(aggregation_str);
+  size_t pos = str.find('(');
+  if (pos == std::string::npos) {
+    return nullptr;
+  }
+  str = str.substr(pos, str.length()-pos-1);
+  return str.c_str();
 }
 
 RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, TupleSet &re_tuple_set) {
@@ -533,21 +597,21 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
       if (search != skip_flag.end() && search->second == true) {
         continue;
       }
-      char *real_relation_name;
-      AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_relation_name);
+      char *real_attribute_name;
+      AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_attribute_name);
       if (aggreation != NOT_KNOWN) {
         aggregation_flag = true;
         aggreations.push_back(aggreation);
-        if (strcmp(real_relation_name, "*") == 0) {
+        if (strcmp(real_attribute_name, "*") == 0) {
           indexs.push_back(-1);
           schema.add_if_not_exists(INTS, "*", attr.attribute_name);
         } else {
-          const FieldMeta *field_meta = table->table_meta().field(real_relation_name);
+          const FieldMeta *field_meta = table->table_meta().field(real_attribute_name);
           if (nullptr == field_meta) {
-            LOG_WARN("No such field. %s.%s", table->name(), real_relation_name);
+            LOG_WARN("No such field. %s.%s", table->name(), real_attribute_name);
             return RC::SCHEMA_FIELD_MISSING;
           }
-          indexs.push_back(schema_all.index_of_field(table_name, real_relation_name));
+          indexs.push_back(schema_all.index_of_field(table_name, real_attribute_name));
           schema.add_if_not_exists(field_meta->type(), table_name, attr.attribute_name);
         }
         
@@ -569,6 +633,44 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
         }
         indexs.push_back(schema_all.index_of_field(table_name, attr.attribute_name));
         schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
+      }
+      
+    }
+  } else if (has_aggregation_select(selects)) {
+    aggregation_flag = true;
+    for (int i = selects.attr_num - 1; i >= 0; i--) {
+      // char *table_name = selects.relations[0];
+      // Table * table = DefaultHandler::get_default().find_table(db, table_name);
+      const RelAttr &attr = selects.attributes[i];
+      // 多表中COUNT(ID)这种聚合语句应该报错
+      if (attr.relation_name == nullptr && 0 != strcmp(attr.attribute_name, "COUNT(*)")) {
+        return RC::GENERIC_ERROR;
+      }
+      Table * table = nullptr;
+      if (attr.relation_name != nullptr) {
+        table = DefaultHandler::get_default().find_table(db, attr.relation_name);
+        if (table == nullptr) {
+          return RC::GENERIC_ERROR;
+        }
+      }
+      // if (table == nullptr && )
+      char *real_attribute_name;
+      AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_attribute_name);
+      if (aggreation != NOT_KNOWN) {
+        
+        aggreations.push_back(aggreation);
+        if (strcmp(real_attribute_name, "*") == 0) {
+          indexs.push_back(-1);
+          schema.add_if_not_exists(INTS, "*", attr.attribute_name);
+        } else {
+          const FieldMeta *field_meta = table->table_meta().field(real_attribute_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("No such field. %s.%s", table->name(), real_attribute_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          indexs.push_back(schema_all.index_of_field(table->name(), real_attribute_name));
+          schema.add_if_not_exists(field_meta->type(), table->name(), attr.attribute_name);
+        }
       }
       
     }
@@ -613,15 +715,110 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
     }
   }
   if (aggregation_flag) {
-    Tuple tuple_;
-    for (size_t i=0; i<indexs.size(); i++) {
-      int index = indexs[i];
-      AGGREGATION_TYPE type = aggreations[i];
-      get_tuple_value(tuple_set, tuple_, type, index);
+    std::vector<int> group_by_list;
+    std::vector<int> group_by_list_pos;
+    for (int i=selects.condition_num-1; i>=0; i--) {
+      const Condition &condition = selects.conditions[i];
+      CompOp compop = condition.comp;
+      if (compop == GROUP_BY) {
+        const RelAttr &left_attr = condition.left_attr;
+        int group_by_index = -1;
+        if (left_attr.relation_name == nullptr) {
+          if (selects.relation_num != 1) {
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          group_by_index = schema_all.index_of_field(selects.relations[0], left_attr.attribute_name);
+        } else {
+          group_by_index = schema_all.index_of_field(left_attr.relation_name, left_attr.attribute_name);
+        }
+        if (group_by_index == -1) {
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        group_by_list.push_back(group_by_index);
+        int pos = -1;
+        for (int j=selects.attr_num-1; j>=0; j--) {
+          RelAttr attr = selects.attributes[j];
+          if (attr.relation_name == nullptr && selects.relation_num != 1) {
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          // char *table_name;
+          Table * table = nullptr;
+          if (attr.relation_name == nullptr) {
+            table = DefaultHandler::get_default().find_table(db, selects.relations[0]);
+          } else {
+            table = DefaultHandler::get_default().find_table(db, attr.relation_name);
+          }
+          char *real_attribute_name;
+          AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_attribute_name);
+          if (aggreation != NOT_KNOWN) {
+            continue;
+          }
+          const FieldMeta *field_meta = table->table_meta().field(attr.attribute_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("No such field. %s.%s", table->name(), attr.attribute_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          if (((left_attr.relation_name != nullptr) 
+            && (attr.relation_name != nullptr) 
+            && (strcmp(left_attr.relation_name, attr.relation_name) == 0))
+            && (strcmp(left_attr.attribute_name, attr.attribute_name) == 0)) {
+            pos = selects.attr_num-1-j;
+            break;
+          }
+        }
+        group_by_list_pos.push_back(pos);
+      }
     }
-    re_tuple_set.set_schema(schema);
-    // re_tuple_set.set_aggregation_flag();
-    re_tuple_set.add(std::move(tuple_));
+    std::vector<TupleSet> split_tuple_sets;
+    split_tuple_set(tuple_set, group_by_list, split_tuple_sets);
+    // group_by_list_pos
+    int schema_num = indexs.size();
+    for (int i=0; i<group_by_list.size(); i++) {
+      const TupleField &field = schema_all.field(group_by_list[i]);
+      if (group_by_list_pos[i] != -1) {
+        schema.add_if_not_exists(field.type(), field.table_name(), field.field_name());
+        schema_num++;
+      }
+    }
+    std::vector<int> schema_map;
+    for (int i=0; i<schema_num; i++) {
+      schema_map.push_back(-1);
+    }
+    int offset = indexs.size(); // 第一个非聚合项的列在schema中的位置
+    for (int i=0; i<group_by_list_pos.size(); i++) {
+      int pos = group_by_list_pos[i];
+      if (pos != -1) {
+        schema_map[pos] = offset++;
+      }
+    }
+    offset = 0;
+    for (int i=0; i<schema_num; i++) {
+      if (schema_map[i] == -1) {
+        schema_map[i] = offset++;
+      }
+    }
+    TupleSchema schema_;
+    for (int i=0; i<schema_num; i++) {
+      int pos = schema_map[i];
+      const TupleField &field = schema.field(pos);
+      schema_.add(field.type(), field.table_name(), field.field_name());
+    }
+
+    re_tuple_set.set_schema(schema_);
+    for (int i=0; i<split_tuple_sets.size(); i++) {
+      Tuple tuple_, tuple__;
+      for (size_t j=0; j<indexs.size(); j++) {
+        int index = indexs[j];
+        AGGREGATION_TYPE type = aggreations[j];
+        get_tuple_value(split_tuple_sets[i], tuple_, type, index, group_by_list, j==indexs.size()-1);
+      }
+      for (int j=0; j<schema_num; j++) {
+        int pos = schema_map[j];
+        tuple__.add(tuple_.get_pointer(pos));
+      }
+      re_tuple_set.add(std::move(tuple__));
+    }
+    
     return RC::SUCCESS;
   }
   re_tuple_set.set_schema(schema);
@@ -768,7 +965,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       session_event->set_response(response);
       return RC::GENERIC_ERROR;
     }
-    re_tuple_set.print(ss);
+    re_tuple_set.print(ss, false);
   }
 
   for (SelectExeNode *& tmp_node: select_nodes) {
@@ -818,7 +1015,7 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(selects, condition.right_attr.relation_name, table_name)) ||  // 左边是值，右边是属性名
         (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
             match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)
-            && condition.comp != ORDER_BY_ASC &&  condition.comp != ORDER_BY_DESC) // 左右都是属性名，并且表名都符合
+            && condition.comp != ORDER_BY_ASC &&  condition.comp != ORDER_BY_DESC && condition.comp != GROUP_BY) // 左右都是属性名，并且表名都符合
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       RC rc = condition_filter->init(*table, condition);
