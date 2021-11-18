@@ -149,24 +149,99 @@ void TupleSchema::print(std::ostream &os) const {
   }
   os << fields_.back().field_name() << std::endl;
 }
+
+bool is_aggregation_schema(const char *attribute_name, char *&aggregation_filed, char *&field_name) {
+  
+  if (attribute_name == nullptr) {
+    return;
+  }
+  if (attribute_name[0] == 'M' || attribute_name[0] == 'm') {
+    if ((attribute_name[1] == 'A' || attribute_name[1] == 'a') 
+      && (attribute_name[2] == 'X' || attribute_name[2] == 'x') 
+      && attribute_name[3] == '(') {
+      size_t len = strlen(attribute_name) + 1 - 4;
+      field_name = new char[len];
+      aggregation_filed = new char[4] {'M', 'A', 'X', '\0'};
+      strcpy(field_name, attribute_name+4);
+      field_name[len-2] = '\0';
+      return true;
+    }
+    if ((attribute_name[1] == 'I' || attribute_name[1] == 'i') 
+      && (attribute_name[2] == 'N' || attribute_name[2] == 'n') 
+      && attribute_name[3] == '(') {
+      size_t len = strlen(attribute_name) + 1 - 4;
+      field_name = new char[len];
+      aggregation_filed = new char[4] {'M', 'I', 'N', '\0'};
+      strcpy(field_name, attribute_name+4);
+      field_name[len-2] = '\0';
+      return true;;
+    }
+    return false;
+  } else if ((attribute_name[0] == 'C' || attribute_name[0] == 'c') 
+      && (attribute_name[1] == 'O' || attribute_name[1] == 'o') 
+      && (attribute_name[2] == 'U' || attribute_name[2] == 'u')
+      && (attribute_name[3] == 'N' || attribute_name[3] == 'n') 
+      && (attribute_name[4] == 'T' || attribute_name[4] == 't') 
+      && attribute_name[5] == '(') {
+    size_t len = strlen(attribute_name) + 1 - 6;
+    field_name = new char[len];
+    aggregation_filed = new char[6] {'C', 'O', 'U', 'N', 'T', '\0'};
+    strcpy(field_name, attribute_name+6);
+    field_name[len-2] = '\0';
+    return true;
+  } else if ((attribute_name[0] == 'A' || attribute_name[0] == 'a') 
+      && (attribute_name[1] == 'V' || attribute_name[1] == 'v')
+      && (attribute_name[2] == 'G' || attribute_name[2] == 'g') 
+      && attribute_name[3] == '(') {
+    size_t len = strlen(attribute_name) + 1 - 4;
+    field_name = new char[len];
+    aggregation_filed = new char[4] {'A', 'V', 'G', '\0'};
+    strcpy(field_name, attribute_name+4);
+    field_name[len-2] = '\0';
+    return true;
+  }
+  aggregation_filed = nullptr;
+  field_name = nullptr;
+  return false;
+}
+
 void TupleSchema::print(std::ostream &os, bool print_table_name) const {
   if (fields_.empty()) {
     os << "No schema";
     return;
   }
+  char *field_name = nullptr, *aggregation_name = nullptr;
 
   for (std::vector<TupleField>::const_iterator iter = fields_.begin(), end = --fields_.end();
        iter != end; ++iter) {
-    if (print_table_name && (strcmp("*", iter->table_name()) != 0)) {
-      os << iter->table_name() << ".";
+    
+    if (is_aggregation_schema(iter->field_name(), aggregation_name, field_name)) {
+      os << aggregation_name << "(";
+      if (print_table_name) {
+        os << iter->table_name() << ".";
+      } 
+      os << field_name << ")" << " | ";
+    } else {
+      if (print_table_name && (strcmp("*", iter->table_name()) != 0)) {
+        os << iter->table_name() << ".";
+      }
+      os << iter->field_name() << " | ";
     }
-    os << iter->field_name() << " | ";
   }
-
-  if (print_table_name && (strcmp("*", fields_.back().table_name()) != 0)) {
-    os << fields_.back().table_name() << ".";
+  if (is_aggregation_schema(fields_.back().field_name(), aggregation_name, field_name)) {
+    os << aggregation_name << "(";
+    if (print_table_name) {
+      os << fields_.back().table_name() << ".";
+    } 
+    os << field_name << ")" << std::endl;
   }
-  os << fields_.back().field_name() << std::endl;
+  else
+  {
+    if (print_table_name && (strcmp("*", fields_.back().table_name()) != 0)) {
+      os << fields_.back().table_name() << ".";
+    }
+    os << fields_.back().field_name() << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////
