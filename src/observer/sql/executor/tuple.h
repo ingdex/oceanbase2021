@@ -155,6 +155,7 @@ public:
 
   void print(std::ostream &os) const;
   void print(std::ostream &os, bool print_table_name) const;
+  void print_tuple(std::ostream &os) const;
   std::string to_string(int index) const;
   std::string to_string(char *table_name) const;
   std::string header_to_string(bool printTableName) const;

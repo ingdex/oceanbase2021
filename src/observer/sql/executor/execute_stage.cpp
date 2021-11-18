@@ -424,7 +424,12 @@ AGGREGATION_TYPE is_aggregation_select(const char * attribute_name, char * &real
 
 void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, int index, std::vector<int> &group_by_list, bool add_group_by_value) {
   // const TupleValue &value_
-  
+  // std::ostringstream os;
+  // tuple_set.print_tuple(os);
+  // os << std::endl;
+  // tuple_set.print_tuple(os);
+
+  // std::cout << os.str() << std::endl;
   if (type == MAX) {
     const std::shared_ptr<TupleValue> *p_value = nullptr;
     for (size_t i=0; i<tuple_set.size(); i++) {
@@ -474,9 +479,6 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
         const Tuple &tuple_ = tuple_set.get(i);
         const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
         std::string str = value_->to_string();
-        // if (value_exist_map.find(str) == value_exist_map.end()) {
-        //   count++;
-        // }
         count++;
         value_exist_map[str] = true;
       }
@@ -490,25 +492,14 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
     const std::shared_ptr<TupleValue> *p_value = &(tuple_set.get(0).get_pointer(index));
     AttrType type = (*p_value)->type();
     float avg = 0;
-    if (type == INTS) {
-      avg = std::stof((*p_value)->to_string());
-    }
-    for (size_t i=1; i<tuple_set.size(); i++) {
+    for (size_t i=0; i<tuple_set.size(); i++) {
       const Tuple &tuple_ = tuple_set.get(i);
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
-      if (type == INTS) {
-        avg += std::stof(value_->to_string());
-      } else {
-        (*p_value)->add(*value_);
-      }
+      // std::cout << value_->to_string() << std::endl;
+      avg += std::stof(value_->to_string());
     }
-    if (type == INTS) {
-      avg /= tuple_set.size();
-      tuple.add(new FloatValue(avg));
-    } else {
-      (*p_value)->divide(tuple_set.size());
-      tuple.add(*p_value);
-    }
+    avg /= tuple_set.size();
+    tuple.add(new FloatValue(avg));
   }
   if (group_by_list.size() > 0 && tuple_set.size() > 0 && add_group_by_value) {
     const Tuple &tuple_ = tuple_set.get(0);
@@ -782,6 +773,15 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
     }
     std::vector<TupleSet> split_tuple_sets;
     split_tuple_set(tuple_set, group_by_list, split_tuple_sets);
+    // std::ostringstream os;
+    // tuple_set.print_tuple(os);
+    // os << std::endl;
+    // for (TupleSet &tuple_set_:split_tuple_sets) {
+    //   tuple_set_.print_tuple(os);
+    //   os << std::endl;
+    // }
+
+    // std::cout << os.str() << std::endl;
     // group_by_list_pos
     int schema_num = indexs.size();
     for (int i=0; i<group_by_list.size(); i++) {
