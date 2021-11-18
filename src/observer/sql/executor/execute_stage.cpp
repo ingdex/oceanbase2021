@@ -584,7 +584,50 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
   std::vector <size_t> indexs; // 需要取出的属性下标集合
   bool aggregation_flag = false;
   std::vector <AGGREGATION_TYPE> aggreations;
-  if (selects.relation_num == 1) {
+  if (has_aggregation_select(selects)) {
+    aggregation_flag = true;
+    for (int i = selects.attr_num - 1; i >= 0; i--) {
+      // char *table_name = selects.relations[0];
+      // Table * table = DefaultHandler::get_default().find_table(db, table_name);
+      const RelAttr &attr = selects.attributes[i];
+      // 多表中COUNT(ID)这种聚合语句应该报错
+      if (attr.relation_name == nullptr && selects.relation_num != 1 && 0 != strcmp(attr.attribute_name, "COUNT(*)")) {
+        return RC::GENERIC_ERROR;
+      }
+      Table * table = nullptr;
+      if (attr.relation_name != nullptr) {
+        table = DefaultHandler::get_default().find_table(db, attr.relation_name);
+        if (table == nullptr) {
+          return RC::GENERIC_ERROR;
+        }
+      } else {
+        table = DefaultHandler::get_default().find_table(db, selects.relations[0]);
+        if (table == nullptr) {
+          return RC::GENERIC_ERROR;
+        }
+      }
+      // if (table == nullptr && )
+      char *real_attribute_name;
+      AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_attribute_name);
+      if (aggreation != NOT_KNOWN) {
+        
+        aggreations.push_back(aggreation);
+        if (strcmp(real_attribute_name, "*") == 0) {
+          indexs.push_back(-1);
+          schema.add_if_not_exists(INTS, "*", attr.attribute_name);
+        } else {
+          const FieldMeta *field_meta = table->table_meta().field(real_attribute_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("No such field. %s.%s", table->name(), real_attribute_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          indexs.push_back(schema_all.index_of_field(table->name(), real_attribute_name));
+          schema.add_if_not_exists(field_meta->type(), table->name(), attr.attribute_name);
+        }
+      }
+      
+    }
+  } else if (selects.relation_num == 1) {
     char *table_name = selects.relations[0];
     Table * table = DefaultHandler::get_default().find_table(db, table_name);
     for (int i = selects.attr_num - 1; i >= 0; i--) {
@@ -636,45 +679,7 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
       }
       
     }
-  } else if (has_aggregation_select(selects)) {
-    aggregation_flag = true;
-    for (int i = selects.attr_num - 1; i >= 0; i--) {
-      // char *table_name = selects.relations[0];
-      // Table * table = DefaultHandler::get_default().find_table(db, table_name);
-      const RelAttr &attr = selects.attributes[i];
-      // 多表中COUNT(ID)这种聚合语句应该报错
-      if (attr.relation_name == nullptr && 0 != strcmp(attr.attribute_name, "COUNT(*)")) {
-        return RC::GENERIC_ERROR;
-      }
-      Table * table = nullptr;
-      if (attr.relation_name != nullptr) {
-        table = DefaultHandler::get_default().find_table(db, attr.relation_name);
-        if (table == nullptr) {
-          return RC::GENERIC_ERROR;
-        }
-      }
-      // if (table == nullptr && )
-      char *real_attribute_name;
-      AGGREGATION_TYPE aggreation = is_aggregation_select(attr.attribute_name, real_attribute_name);
-      if (aggreation != NOT_KNOWN) {
-        
-        aggreations.push_back(aggreation);
-        if (strcmp(real_attribute_name, "*") == 0) {
-          indexs.push_back(-1);
-          schema.add_if_not_exists(INTS, "*", attr.attribute_name);
-        } else {
-          const FieldMeta *field_meta = table->table_meta().field(real_attribute_name);
-          if (nullptr == field_meta) {
-            LOG_WARN("No such field. %s.%s", table->name(), real_attribute_name);
-            return RC::SCHEMA_FIELD_MISSING;
-          }
-          indexs.push_back(schema_all.index_of_field(table->name(), real_attribute_name));
-          schema.add_if_not_exists(field_meta->type(), table->name(), attr.attribute_name);
-        }
-      }
-      
-    }
-  } else {
+  } else  {
     for (int i = selects.attr_num - 1; i >= 0; i--) {
       const RelAttr &attr = selects.attributes[i];
       if (attr.relation_name == nullptr) {
@@ -758,7 +763,13 @@ RC projection(const char *db, TupleSet &tuple_set, const Selects &selects, Tuple
             LOG_WARN("No such field. %s.%s", table->name(), attr.attribute_name);
             return RC::SCHEMA_FIELD_MISSING;
           }
-          if (((left_attr.relation_name != nullptr) 
+          if ((selects.relation_num == 1) 
+            && (left_attr.relation_name == nullptr)
+            && (attr.relation_name == nullptr) 
+            && (strcmp(left_attr.attribute_name, attr.attribute_name) == 0)) {
+            pos = selects.attr_num-1-j;
+            break;
+          } else if (((left_attr.relation_name != nullptr) 
             && (attr.relation_name != nullptr) 
             && (strcmp(left_attr.relation_name, attr.relation_name) == 0))
             && (strcmp(left_attr.attribute_name, attr.attribute_name) == 0)) {
