@@ -438,7 +438,7 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       if (value_->type() == IS_NULL) {
         has_null = true;
-        break;
+        continue;
       }
       if (p_value == nullptr) {
         p_value = &value_;
@@ -449,8 +449,9 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
         p_value = &value_;
       }
     }
-    if (p_value == nullptr || has_null == true) {
+    if (p_value == nullptr) {
       // todo: 使用null类型
+      tuple.add();
     } else {
       tuple.add(*p_value);
     }
@@ -462,8 +463,8 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       if (value_->type() == IS_NULL) {
         has_null = true;
-        break;
-        // continue;
+        // break;
+        continue;
       }
       if (p_value == nullptr) {
         
@@ -475,7 +476,8 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
         p_value = &value_;
       }
     }
-    if (p_value == nullptr || has_null == true) {
+    if (p_value == nullptr) {
+      tuple.add();
       // todo: 使用null类型
     } else {
       tuple.add(*p_value);
@@ -504,7 +506,8 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       // todo: 使用null类型
       return;
     }
-    bool has_null = false;
+    bool all_null = false;
+    bool not_all_null = false;
     const std::shared_ptr<TupleValue> *p_value = &(tuple_set.get(0).get_pointer(index));
     AttrType type = (*p_value)->type();
     float avg = 0;
@@ -514,15 +517,20 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       // std::cout << value_->to_string() << std::endl;
       if (value_->type() == IS_NULL) {
-        has_null = true;
-        // continue;
-        break;
+        if (not_all_null) {
+          all_null = false;
+        } else {
+          all_null = true;
+        }
+        continue;
+        // break;
       }
+      not_all_null = true;
       avg += std::stof(value_->to_string());
       div_count++;
     }
-    if (has_null) {
-      tuple.add();
+    if (all_null) {
+      // tuple.add();
     } else {
       if (div_count != 0) {
       avg /= div_count;
