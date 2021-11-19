@@ -162,10 +162,31 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
   int i1,i2;
   float f1,f2;
   const char *s1,*s2;
+  int is_null1, is_null2;
   switch(attr_type){
     case INTS: {
       i1 = *(int *) pdata;
       i2 = *(int *) pkey;
+      if (i1 > i2)
+        return 1;
+      if (i1 < i2)
+        return -1;
+      if (i1 == i2)
+        return 0;
+    }
+      break;
+    case INTS_NULLABLE: {
+      i1 = *(int *) pdata;
+      i2 = *(int *) pkey;
+      is_null1 = *(int *) (pdata + attr_length);
+      is_null2 = *(int *) (pkey + attr_length);
+      if (is_null1 == 1 && is_null2 == 1) {
+        return 0;
+      } else if (is_null1 == 1 && is_null2 != 1) {
+        return 1;
+      } else if (is_null1 != 1 && is_null2 == 1) {
+        return 0;
+      }
       if (i1 > i2)
         return 1;
       if (i1 < i2)
@@ -180,15 +201,65 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
       return float_compare(f1, f2);
     }
       break;
+    case FLOATS_NULLABLE: {
+      f1 = *(float *) pdata;
+      f2 = *(float *) pkey;
+      is_null1 = *(int *) (pdata + attr_length);
+      is_null2 = *(int *) (pkey + attr_length);
+      if (is_null1 == 1 && is_null2 == 1) {
+        return 0;
+      } else if (is_null1 == 1 && is_null2 != 1) {
+        return 1;
+      } else if (is_null1 != 1 && is_null2 == 1) {
+        return 0;
+      }
+      return float_compare(f1, f2);
+    }
+      break;
     case CHARS: {
       s1 = pdata;
       s2 = pkey;
       return strncmp(s1, s2, attr_length);
     }
       break;
+    case CHARS_NULLABLE: {
+      s1 = pdata;
+      s2 = pkey;
+      is_null1 = *(int *) (pdata + attr_length);
+      is_null2 = *(int *) (pkey + attr_length);
+      if (is_null1 == 1 && is_null2 == 1) {
+        return 0;
+      } else if (is_null1 == 1 && is_null2 != 1) {
+        return 1;
+      } else if (is_null1 != 1 && is_null2 == 1) {
+        return 0;
+      }
+      return strncmp(s1, s2, attr_length);
+    }
+      break;
     case DATES: {
       i1 = *(int *) pdata;
       i2 = *(int *) pkey;
+      if (i1 > i2)
+        return 1;
+      if (i1 < i2)
+        return -1;
+      if (i1 == i2)
+        return 0;
+    }
+      break;
+    case DATES_NULLABLE: {
+      i1 = *(int *) pdata;
+      i2 = *(int *) pkey;
+      is_null1 = *(int *) (pdata + attr_length);
+      is_null2 = *(int *) (pkey + attr_length);
+      if (is_null1 == 1 && is_null2 == 1) {
+        return 0;
+      } else if (is_null1 == 1 && is_null2 != 1) {
+        return 1;
+      } else if (is_null1 != 1 && is_null2 == 1) {
+        return 0;
+      }
       if (i1 > i2)
         return 1;
       if (i1 < i2)
