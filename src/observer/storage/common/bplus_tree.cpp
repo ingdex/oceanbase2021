@@ -72,6 +72,12 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
     return rc;
   }
   IndexFileHeader *file_header =(IndexFileHeader *)pdata;
+  if (attr_type == INTS_NULLABLE 
+    || attr_type == CHARS_NULLABLE
+    || attr_type == FLOATS_NULLABLE
+    || attr_type == DATES_NULLABLE) {
+    attr_length += 4;
+  }
   file_header->attr_length = attr_length;
   file_header->key_length = attr_length + sizeof(RID);
   file_header->attr_type = attr_type;
@@ -178,8 +184,8 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
     case INTS_NULLABLE: {
       i1 = *(int *) pdata;
       i2 = *(int *) pkey;
-      is_null1 = *(int *) (pdata + attr_length);
-      is_null2 = *(int *) (pkey + attr_length);
+      is_null1 = *(int *) (pdata + attr_length - 4);
+      is_null2 = *(int *) (pkey + attr_length - 4);
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -204,8 +210,8 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
     case FLOATS_NULLABLE: {
       f1 = *(float *) pdata;
       f2 = *(float *) pkey;
-      is_null1 = *(int *) (pdata + attr_length);
-      is_null2 = *(int *) (pkey + attr_length);
+      is_null1 = *(int *) (pdata + attr_length - 4);
+      is_null2 = *(int *) (pkey + attr_length - 4);
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -225,8 +231,8 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
     case CHARS_NULLABLE: {
       s1 = pdata;
       s2 = pkey;
-      is_null1 = *(int *) (pdata + attr_length);
-      is_null2 = *(int *) (pkey + attr_length);
+      is_null1 = *(int *) (pdata + attr_length - 4);
+      is_null2 = *(int *) (pkey + attr_length - 4);
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -251,8 +257,8 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
     case DATES_NULLABLE: {
       i1 = *(int *) pdata;
       i2 = *(int *) pkey;
-      is_null1 = *(int *) (pdata + attr_length);
-      is_null2 = *(int *) (pkey + attr_length);
+      is_null1 = *(int *) (pdata + attr_length - 4);
+      is_null2 = *(int *) (pkey + attr_length - 4);
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -1665,7 +1671,7 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
   RC rc;
   int i,tmp;
   RID rid;
-  if(compop == LESS_THAN || compop == LESS_EQUAL || compop == NOT_EQUAL){
+  if(compop == LESS_THAN || compop == LESS_EQUAL || compop == NOT_EQUAL || compop == IS || compop == IS_NOT){
     rc = get_first_leaf_page(page_num);
     if(rc != SUCCESS){
       return rc;
@@ -1680,7 +1686,10 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
     LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
-  memcpy(pkey, key, file_header_.attr_length);
+  if (key != nullptr) {
+    memcpy(pkey, key, file_header_.attr_length);
+  }
+  // memcpy(pkey, key, file_header_.attr_length);
   memcpy(pkey + file_header_.attr_length, &rid, sizeof(RID));
 
   rc = find_leaf(pkey, &leaf_page);
@@ -1704,6 +1713,37 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
 
     node = get_index_node(pdata);
     for(i = 0; i < node->key_num; i++){
+      // if (compop == IS || compop == IS_NOT) {
+      //   if (key != nullptr) {
+      //     return RC::GENERIC_ERROR;
+      //   }
+      //   int is_null = *(int *) (node->keys+i*file_header_.key_length + file_header_.attr_length);
+      //   if (compop == IS && is_null == 1) {
+      //     rc = disk_buffer_pool_->get_page_num(&page_handle, page_num);
+      //     if(rc != SUCCESS){
+      //       return rc;
+      //     }
+      //     *rididx=i;
+      //     rc = disk_buffer_pool_->unpin_page(&page_handle);
+      //     if(rc != SUCCESS){
+      //       return rc;
+      //     }
+      //     return SUCCESS; 
+      //   }
+      //   if (compop == IS_NOT && is_null == 0) {
+      //     rc = disk_buffer_pool_->get_page_num(&page_handle, page_num);
+      //     if(rc != SUCCESS){
+      //       return rc;
+      //     }
+      //     *rididx=i;
+      //     rc = disk_buffer_pool_->unpin_page(&page_handle);
+      //     if(rc != SUCCESS){
+      //       return rc;
+      //     }
+      //     return SUCCESS; 
+      //   }
+      //   continue;
+      // }
       tmp=CompareKey(node->keys+i*file_header_.key_length,key,file_header_.attr_type,file_header_.attr_length);
       if(compop == EQUAL_TO ||compop == GREAT_EQUAL){
         if(tmp>=0){
@@ -1802,12 +1842,15 @@ RC BplusTreeScanner::open(CompOp comp_op,const char *value) {
 
   comp_op_ = comp_op;
 
-  char *value_copy =(char *)malloc(index_handler_.file_header_.attr_length);
-  if(value_copy == nullptr){
-    LOG_ERROR("Failed to alloc memory for value. size=%d", index_handler_.file_header_.attr_length);
-    return RC::NOMEM;
+  char *value_copy = nullptr;
+  if (value != nullptr) {
+    value_copy = (char *)malloc(index_handler_.file_header_.attr_length);
+    if(value_copy == nullptr){
+      LOG_ERROR("Failed to alloc memory for value. size=%d", index_handler_.file_header_.attr_length);
+      return RC::NOMEM;
+    }
+    memcpy(value_copy, value, index_handler_.file_header_.attr_length);
   }
-  memcpy(value_copy, value, index_handler_.file_header_.attr_length);
   value_ = value_copy; // free value_
   rc = index_handler_.find_first_index_satisfied(comp_op, value, &next_page_num_, &index_in_node_);
   if(rc != SUCCESS){
@@ -1930,6 +1973,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
   int i1=0,i2=0;
   float f1=0,f2=0;
   const char *s1=nullptr,*s2=nullptr;
+  int is_null1=0, is_null2=0;
 
   if(comp_op_ == NO_OP){
     return true;
@@ -1941,17 +1985,46 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
       i1=*(int *)pkey;
       i2=*(int *)value_;
       break;
+    case INTS_NULLABLE:
+      i1=*(int *)pkey;
+      is_null1 = *(int *)pkey+4;
+      if (value_==nullptr) {
+        i2=0;
+        is_null2 = 1;
+      } else {
+        i2=*(int *)value_;
+        is_null2 = *(int *)(value_+4);
+      }
+      break;
     case FLOATS:
       f1=*(float *)pkey;
       f2=*(float *)value_;
+      break;
+    case FLOATS_NULLABLE:
+      f1=*(int *)pkey;
+      f1=*(int *)value_;
+      is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
+      is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
       break;
     case CHARS:
       s1=pkey;
       s2=value_;
       break;
+    case CHARS_NULLABLE:
+      s1=pkey;
+      s2=value_;
+      is_null1 = *(int *)pkey+index_handler_.file_header_.attr_length-4;
+      is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
+      break;
     case DATES:
       i1=*(int *)pkey;
       i2=*(int *)value_;
+      break;
+    case DATES_NULLABLE:
+      i1=*(int *)pkey;
+      i2=*(int *)value_;
+      is_null1 = *(int *)pkey+index_handler_.file_header_.attr_length-4;
+      is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
       break;
     default:
       LOG_PANIC("Unknown attr type: %d", attr_type);
@@ -1966,13 +2039,41 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         case INTS:
           flag=(i1==i2);
           break;
+        case INTS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1==i2);
+          break;
         case FLOATS:
+          flag= 0 == float_compare(f1, f2);
+          break;
+        case FLOATS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
           flag= 0 == float_compare(f1, f2);
           break;
         case CHARS:
           flag=(strncmp(s1,s2,attr_length)==0);
           break;
+        case CHARS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(strncmp(s1,s2,attr_length)==0);
+          break;
         case DATES:
+          flag=(i1==i2);
+          break;
+        case DATES_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
           flag=(i1==i2);
           break;
         default:
@@ -1984,13 +2085,41 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         case INTS:
           flag=(i1<i2);
           break;
+        case INTS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1<i2);
+          break;
         case FLOATS:
+          flag=(f1<f2);
+          break;
+        case FLOATS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
           flag=(f1<f2);
           break;
         case CHARS:
           flag=(strncmp(s1,s2,attr_length)<0);
           break;
+        case CHARS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(strncmp(s1,s2,attr_length)<0);
+          break;
         case DATES:
+          flag=(i1<i2);
+          break;
+        case DATES_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
           flag=(i1<i2);
           break;
         default:
@@ -2011,6 +2140,34 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         case DATES:
           flag=(i1>i2);
           break;
+        case INTS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1>i2);
+          break;
+        case FLOATS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(f1>f2);
+          break;
+        case CHARS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(strncmp(s1,s2,attr_length)>0);
+          break;
+        case DATES_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1>i2);
+          break;
         default:
           LOG_PANIC("Unknown attr type: %d", attr_type);
       }
@@ -2027,6 +2184,34 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
           flag=(strncmp(s1,s2,attr_length)<=0);
           break;
         case DATES:
+          flag=(i1<=i2);
+          break;
+        case INTS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1<=i2);
+          break;
+        case FLOATS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(f1<=f2);
+          break;
+        case CHARS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(strncmp(s1,s2,attr_length)<=0);
+          break;
+        case DATES_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
           flag=(i1<=i2);
           break;
         default:
@@ -2047,6 +2232,34 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         case DATES:
           flag=(i1>=i2);
           break;
+        case INTS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1>=i2);
+          break;
+        case FLOATS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(f1>=f2);
+          break;
+        case CHARS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(strncmp(s1,s2,attr_length)>=0);
+          break;
+        case DATES_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1>=i2);
+          break;
         default:
           LOG_PANIC("Unknown attr type: %d", attr_type);
       }
@@ -2065,9 +2278,51 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         case DATES:
           flag=(i1!=i2);
           break;
+        case INTS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1!=i2);
+          break;
+        case FLOATS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag= 0 != float_compare(f1, f2);
+          break;
+        case CHARS_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(strncmp(s1,s2,attr_length)!=0);
+          break;
+        case DATES_NULLABLE:
+          if (is_null1 == 1 || is_null2 == 1) {
+            flag = false;
+            break;
+          }
+          flag=(i1!=i2);
+          break;
         default:
           LOG_PANIC("Unknown attr type: %d", attr_type);
       }
+      break;
+    case IS:
+      if (is_null1 == 1 && is_null2 == 1) {
+        flag = true;
+        break;
+      }
+      flag = false;
+      break;
+    case IS_NOT:
+      if (is_null1 == 0 && is_null2 == 1) {
+        flag = true;
+        break;
+      }
+      flag = false;
       break;
     default:
       LOG_PANIC("Unknown comp op: %d", comp_op_);
