@@ -183,9 +183,16 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
       break;
     case INTS_NULLABLE: {
       i1 = *(int *) pdata;
-      i2 = *(int *) pkey;
+      // i2 = *(int *) pkey;
       is_null1 = *(int *) (pdata + attr_length - 4);
-      is_null2 = *(int *) (pkey + attr_length - 4);
+      // is_null2 = *(int *) (pkey + attr_length - 4);
+      if (pkey == nullptr) {
+        i2 = 0;
+        is_null2 = 1;
+      } else {
+        i2 = *(int *) pkey;
+        is_null2 = *(int *) (pkey + attr_length - 4);
+      }
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -209,9 +216,16 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
       break;
     case FLOATS_NULLABLE: {
       f1 = *(float *) pdata;
-      f2 = *(float *) pkey;
+      // f2 = *(float *) pkey;
       is_null1 = *(int *) (pdata + attr_length - 4);
-      is_null2 = *(int *) (pkey + attr_length - 4);
+      // is_null2 = *(int *) (pkey + attr_length - 4);
+      if (pkey == nullptr) {
+        f2 = 0;
+        is_null2 = 1;
+      } else {
+        f2 = *(float *) pkey;
+        is_null2 = *(int *) (pkey + attr_length - 4);
+      }
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -230,9 +244,16 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
       break;
     case CHARS_NULLABLE: {
       s1 = pdata;
-      s2 = pkey;
+      // s2 = pkey;
       is_null1 = *(int *) (pdata + attr_length - 4);
-      is_null2 = *(int *) (pkey + attr_length - 4);
+      // is_null2 = *(int *) (pkey + attr_length - 4);
+      if (pkey == nullptr) {
+        s2 = 0;
+        is_null2 = 1;
+      } else {
+        s2 = pkey;
+        is_null2 = *(int *) (pkey + attr_length - 4);
+      }
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -256,9 +277,15 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
       break;
     case DATES_NULLABLE: {
       i1 = *(int *) pdata;
-      i2 = *(int *) pkey;
       is_null1 = *(int *) (pdata + attr_length - 4);
-      is_null2 = *(int *) (pkey + attr_length - 4);
+      if (pkey == nullptr) {
+        i2 = 0;
+        is_null2 = 1;
+      } else {
+        i2 = *(int *) pkey;
+        is_null2 = *(int *) (pkey + attr_length - 4);
+      }
+      
       if (is_null1 == 1 && is_null2 == 1) {
         return 0;
       } else if (is_null1 == 1 && is_null2 != 1) {
@@ -1967,7 +1994,7 @@ RC BplusTreeScanner::get_next_idx_in_memory(RID *rid) {
 
     index_in_node_ = 0;
   }
-  return RC::RECORD_NO_MORE_IDX_IN_MEM;
+  return RC::SUCCESS;
 }
 bool BplusTreeScanner::satisfy_condition(const char *pkey) {
   int i1=0,i2=0;
