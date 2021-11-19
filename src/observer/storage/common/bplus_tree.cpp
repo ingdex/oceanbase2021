@@ -1987,11 +1987,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
       break;
     case INTS_NULLABLE:
       i1=*(int *)pkey;
-<<<<<<< Updated upstream
-      is_null1 = *(int *)pkey+4;
-=======
       is_null1 = *(int *)(pkey+4);
->>>>>>> Stashed changes
       if (value_==nullptr) {
         i2=0;
         is_null2 = 1;
@@ -2005,12 +2001,6 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
       f2=*(float *)value_;
       break;
     case FLOATS_NULLABLE:
-<<<<<<< Updated upstream
-      f1=*(int *)pkey;
-      f1=*(int *)value_;
-      is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
-      is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
-=======
       f1=*(float *)pkey;
       // f2=*(float *)value_;
       is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
@@ -2022,7 +2012,6 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         f2=*(float *)value_;
         is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
       }
->>>>>>> Stashed changes
       break;
     case CHARS:
       s1=pkey;
@@ -2030,11 +2019,6 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
       break;
     case CHARS_NULLABLE:
       s1=pkey;
-<<<<<<< Updated upstream
-      s2=value_;
-      is_null1 = *(int *)pkey+index_handler_.file_header_.attr_length-4;
-      is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
-=======
       // s2=value_;
       is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
       // is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
@@ -2045,7 +2029,6 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         s2=value_;
         is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
       }
->>>>>>> Stashed changes
       break;
     case DATES:
       i1=*(int *)pkey;
@@ -2053,11 +2036,6 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
       break;
     case DATES_NULLABLE:
       i1=*(int *)pkey;
-<<<<<<< Updated upstream
-      i2=*(int *)value_;
-      is_null1 = *(int *)pkey+index_handler_.file_header_.attr_length-4;
-      is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
-=======
       // i2=*(int *)value_;
       is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
       // is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
@@ -2068,7 +2046,6 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         i2=*(int *)value_;
         is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
       }
->>>>>>> Stashed changes
       break;
     default:
       LOG_PANIC("Unknown attr type: %d", attr_type);
