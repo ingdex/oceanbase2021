@@ -1059,7 +1059,28 @@ condition:
 			Condition condition;
 			condition_init(&condition, IS_NOT, 1, &left_attr, NULL, 0, NULL, right_value);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-	};
+	}
+	|value IS_T NULL_T
+		{
+			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			Condition condition;
+			condition_init(&condition, IS, 0, NULL, left_value, 0, NULL, right_value);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+		
+		}
+	|value IS_T NOT NULL_T
+		{
+			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			Condition condition;
+			condition_init(&condition, IS_NOT, 0, NULL, left_value, 0, NULL, right_value);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+		
+		}
+	;
 
 comOp:
   	  EQ { CONTEXT->comp = EQUAL_TO; }
