@@ -435,6 +435,9 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
     for (size_t i=0; i<tuple_set.size(); i++) {
       const Tuple &tuple_ = tuple_set.get(i);
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+      if (value_->type() == IS_NULL) {
+        continue;
+      }
       if (p_value == nullptr) {
         p_value = &value_;
         continue;
@@ -454,6 +457,9 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
     for (size_t i=0; i<tuple_set.size(); i++) {
       const Tuple &tuple_ = tuple_set.get(i);
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+      if (value_->type() == IS_NULL) {
+        continue;
+      }
       if (p_value == nullptr) {
         p_value = &value_;
         continue;
@@ -478,6 +484,9 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       for (size_t i=0; i<tuple_set.size(); i++) {
         const Tuple &tuple_ = tuple_set.get(i);
         const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
+        if (value_->type() == IS_NULL) {
+          continue;
+        }
         std::string str = value_->to_string();
         count++;
         value_exist_map[str] = true;
@@ -492,13 +501,20 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
     const std::shared_ptr<TupleValue> *p_value = &(tuple_set.get(0).get_pointer(index));
     AttrType type = (*p_value)->type();
     float avg = 0;
+    size_t div_count = 0;
     for (size_t i=0; i<tuple_set.size(); i++) {
       const Tuple &tuple_ = tuple_set.get(i);
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       // std::cout << value_->to_string() << std::endl;
+      if (value_->type() == IS_NULL) {
+        continue;
+      }
       avg += std::stof(value_->to_string());
+      div_count++;
     }
-    avg /= tuple_set.size();
+    if (div_count != 0) {
+      avg /= div_count;
+    }
     tuple.add(new FloatValue(avg));
   }
   if (group_by_list.size() > 0 && tuple_set.size() > 0 && add_group_by_value) {

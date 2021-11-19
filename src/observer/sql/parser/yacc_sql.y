@@ -113,7 +113,10 @@ ParserContext *get_context(yyscan_t scanner)
 		BY
 		UNIQUE
 		TEXT_T
-
+		NOT
+		NULL_T
+		NULLABLE
+		IS_T
 
 %union {
   struct _Attr *attr;
@@ -265,11 +268,17 @@ attr_def:
 			AttrInfo attribute;
 			attr_info_init(&attribute, CONTEXT->id, $2, $4);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+			if ($2 == INTS_NULLABLE || $2 == FLOATS_NULLABLE || $2 == CHARS_NULLABLE || $2 == DATES_NULLABLE) {
+				attr_info_init(&attribute, "NULL", IF_NULL, 4);
+				create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+				CONTEXT->value_length++;
+			}
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name =(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type = $2;  
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length = $4;
-			CONTEXT->value_length++;
+			
 		}
     |ID_get type
 		{
@@ -281,6 +290,11 @@ attr_def:
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type=$2;  
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length=4; // default attribute length
 			CONTEXT->value_length++;
+			if ($2 == INTS_NULLABLE || $2 == FLOATS_NULLABLE || $2 == CHARS_NULLABLE || $2 == DATES_NULLABLE) {
+				attr_info_init(&attribute, "NULL", IF_NULL, 4);
+				create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+				CONTEXT->value_length++;
+			}
 		}
 	|ID_get TEXT_T
 		{
@@ -295,10 +309,18 @@ number:
 		;
 type:
 	INT_T { $$=INTS; }
-       | STRING_T { $$=CHARS; }
-       | FLOAT_T { $$=FLOATS; }
-	   | DATE_T { $$=DATES; }
-       ;
+	| INT_T NOT NULL_T { $$=INTS; }
+	| INT_T NULLABLE { $$=INTS_NULLABLE; }
+    | STRING_T { $$=CHARS; }
+	| STRING_T NOT NULL_T { $$=CHARS; }
+	| STRING_T NULLABLE { $$=CHARS_NULLABLE; }
+    | FLOAT_T { $$=FLOATS; }
+	| FLOAT_T NOT NULL_T { $$=FLOATS; }
+	| FLOAT_T NULLABLE { $$=FLOATS_NULLABLE; }
+	| DATE_T { $$=DATES; }
+	| DATE_T NOT NULL_T { $$=DATES; }
+	| DATE_T NULLABLE { $$=DATES_NULLABLE; }
+    ;
 ID_get:
 	ID 
 	{
@@ -355,7 +377,11 @@ value:
 			$1 = substr($1,1,strlen($1)-2);
   		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
-    ;
+    |NULL_T {
+		// $1 = substr($1,1,strlen($1)-2);
+  		// value_init_string(&CONTEXT->values[CONTEXT->value_length++], "null");
+		  value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+	};
     
 delete:		/*  delete 语句的语法解析树*/
     DELETE FROM ID where SEMICOLON 
@@ -998,7 +1024,42 @@ condition:
 			// $$->right_attr.relation_name=$5;
 			// $$->right_attr.attribute_name=$7;
     }
-    ;
+    | ID IS_T NULL_T {
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $1);
+			value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			Condition condition;
+			condition_init(&condition, IS, 1, &left_attr, NULL, 0, NULL, right_value);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	| ID IS_T NOT NULL_T {
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $1);
+			value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			Condition condition;
+			condition_init(&condition, IS_NOT, 1, &left_attr, NULL, 0, NULL, right_value);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	| ID DOT ID IS_T NULL_T {
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, $1, $3);
+			value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			Condition condition;
+			condition_init(&condition, IS, 1, &left_attr, NULL, 0, NULL, right_value);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	| ID DOT ID IS_T NOT NULL_T{
+		RelAttr left_attr;
+			relation_attr_init(&left_attr, $1, $3);
+			value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			Condition condition;
+			condition_init(&condition, IS_NOT, 1, &left_attr, NULL, 0, NULL, right_value);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	};
 
 comOp:
   	  EQ { CONTEXT->comp = EQUAL_TO; }

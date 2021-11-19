@@ -371,14 +371,74 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if (field->type() != value.type) {
-      if(field->type()==DATES && value.type==CHARS){
-        continue;
-      }
-      LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+    AttrType type = field->type();
+    switch (type)
+    {
+    case CHARS:
+      if (value.type != CHARS) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
                 field->name(), field->type(), value.type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case CHARS_NULLABLE:
+      if (value.type != CHARS && value.type != IS_NULL) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case INTS:
+      if (value.type != INTS) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case INTS_NULLABLE:
+      if (value.type != INTS && value.type != IS_NULL) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case FLOATS:
+      if (value.type != FLOATS) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case FLOATS_NULLABLE:
+      if (value.type != FLOATS && value.type != IS_NULL) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case DATES:
+      if (value.type != CHARS) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    case DATES_NULLABLE:
+      if (value.type != CHARS && value.type != IS_NULL) {
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+                field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    default:
+      break;
     }
+    // if (field->type() != value.type) {
+    //   if(field->type()==DATES && value.type==CHARS){
+    //     continue;
+    //   }
+      
+    // }
   }
     // common::Date *date = new common::Date(y,m,d);
   // Xing 待修改
@@ -399,8 +459,36 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       memcpy(record + field->offset(), &date_int, field->len()); 
-    }
-    else{
+    } else if (field->type() == DATES_NULLABLE) {
+      if (value.type == IS_NULL) {
+        int is_null = 1;
+        int offset = table_meta_.set_null_offset(i + normal_field_start_index);
+        memcpy(record + offset, &is_null, 4); 
+      } else {
+        MyDate date((char *)value.data);
+        int date_int = date.toInt();
+        if (date_int == -1) {
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+        memcpy(record + field->offset(), &date_int, field->len()); 
+        int is_null = 0;
+        int offset = table_meta_.set_null_offset(i + normal_field_start_index);
+        memcpy(record + offset, &is_null, 4); 
+      }
+    } else if (field->type() == INTS_NULLABLE 
+            ||field->type() == FLOATS_NULLABLE 
+            ||field->type() == CHARS_NULLABLE) {
+      if (value.type == IS_NULL) {
+        int is_null = 1;
+        int offset = table_meta_.set_null_offset(i + normal_field_start_index);
+        memcpy(record + offset, &is_null, 4); 
+      } else {
+        memcpy(record + field->offset(), value.data, field->len());
+        int is_null = 0;
+        int offset = table_meta_.set_null_offset(i + normal_field_start_index);
+        memcpy(record + offset, &is_null, 4); 
+      }
+    } else{
       memcpy(record + field->offset(), value.data, field->len());
     }
   }

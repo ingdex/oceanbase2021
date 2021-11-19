@@ -26,13 +26,19 @@ const static Json::StaticString FIELD_VISIBLE("visible");
 const char *ATTR_TYPE_NAME[] = {
   "undefined",
   "chars",
+  "chars_nullable",
   "ints",
+  "ints_nullable",
   "floats",
-  "dates"
+  "floats_nullable",
+  "dates",
+  "dates_nullable",
+  "if_null",
+  "is_null"
 };
 
 const char *attr_type_to_string(AttrType type) {
-  if (type >= UNDEFINED && type <= DATES) {
+  if (type >= UNDEFINED && type <= IS_NULL) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";

@@ -167,5 +167,36 @@ private:
   std::string value_;
 };
 
+class NullValue : public TupleValue {
+public:
+  explicit NullValue() {
+  }
 
+  void to_string(std::ostream &os) const override {
+    os << "NULL";
+  }
+
+  std::string to_string() const override {
+    return std::string("NULL");
+  }
+
+  int compare(const TupleValue &other) const override {
+    return 1;
+  }
+
+  virtual void add(const TupleValue &other) override {
+    
+  }
+
+  virtual void divide(const size_t x) override {
+    
+  }
+  
+  virtual AttrType type() const override {
+    return IS_NULL;
+  }
+ 
+private:
+  // int value_;
+};
 #endif //__OBSERVER_SQL_EXECUTOR_VALUE_H_

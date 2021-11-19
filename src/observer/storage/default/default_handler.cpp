@@ -191,22 +191,175 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       LOG_WARN("No such field in condition. %s.%s", table->name(), attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
   }
-  if (field_update->type() != value->type) {
-    if (field_update->type() != DATES || value->type != CHARS) {
+  int is_null = 1;
+  int not_null = 0;
+  switch (field_update->type())
+  {
+  case INTS:
+  {
+    if (value->type != INTS) {
       LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
+    update_desc.is_attr = true;
+    // update_desc.nullable = false;
+    update_desc.attr_length = field_update->len();
+    update_desc.attr_offset = field_update->offset();
+    update_desc.value = value->data;
   }
-  update_desc.is_attr = true;
-  update_desc.attr_length = field_update->len();
-  update_desc.attr_offset = field_update->offset();
-  if (field_update->type() == DATES) {
+  break;
+  case INTS_NULLABLE:
+  {
+    if (value->type != INTS && value->type != IS_NULL) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    if (value->type == INTS) {
+      update_desc.is_attr = true;
+      update_desc.attr_length = field_update->len() + 4;
+      update_desc.attr_offset = field_update->offset();
+      update_desc.value = new char[field_update->len() + 4];
+      // update_desc.value = value->data;
+      memcpy(update_desc.value, value->data, field_update->len());
+      memcpy(update_desc.value + field_update->len(), &not_null, 4);
+      // delete update_desc.value;
+    } else {
+      update_desc.is_attr = true;
+      update_desc.attr_length = 4;
+      update_desc.attr_offset = field_update->offset() + field_update->len();
+      update_desc.value = &is_null;
+    }
+  }
+  break;
+  case FLOATS:
+  {
+    if (value->type != FLOATS) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    update_desc.is_attr = true;
+    update_desc.attr_length = field_update->len();
+    update_desc.attr_offset = field_update->offset();
+    update_desc.value = value->data;
+  }
+  break;
+  case FLOATS_NULLABLE:
+  {
+    if (value->type != FLOATS && value->type != IS_NULL) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    if (value->type == FLOATS) {
+      update_desc.is_attr = true;
+      update_desc.attr_length = field_update->len() + 4;
+      update_desc.attr_offset = field_update->offset();
+      // update_desc.value = value->data;
+      update_desc.value = new char[field_update->len() + 4];
+      // update_desc.value = value->data;
+      memcpy(update_desc.value, value->data, field_update->len());
+      memcpy(update_desc.value + field_update->len(), &not_null, 4);
+      // delete update_desc.value;
+    } else {
+      update_desc.is_attr = true;
+      update_desc.attr_length = 4;
+      update_desc.attr_offset = field_update->offset() + field_update->len();
+      update_desc.value = &is_null;
+    }
+  }
+  break;
+  case CHARS:
+  {
+    if (value->type != CHARS) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    update_desc.is_attr = true;
+    update_desc.attr_length = field_update->len();
+    update_desc.attr_offset = field_update->offset();
+    update_desc.value = value->data;
+  }
+  break;
+  case CHARS_NULLABLE:
+  {
+    if (value->type != CHARS && value->type != IS_NULL) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    if (value->type == CHARS) {
+      update_desc.is_attr = true;
+      update_desc.attr_length = field_update->len() + 4;
+      update_desc.attr_offset = field_update->offset();
+      // update_desc.value = value->data;
+      update_desc.value = new char[field_update->len() + 4];
+      // update_desc.value = value->data;
+      memcpy(update_desc.value, value->data, field_update->len());
+      memcpy(update_desc.value + field_update->len(), &not_null, 4);
+      // delete update_desc.value;
+    } else {
+      update_desc.is_attr = true;
+      update_desc.attr_length = 4;
+      update_desc.attr_offset = field_update->offset() + field_update->len();
+      update_desc.value = &is_null;
+    }
+  }
+  break;
+  case DATES:
+  {
+    if (value->type != CHARS) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    update_desc.is_attr = true;
+    update_desc.attr_length = field_update->len();
+    update_desc.attr_offset = field_update->offset();
     MyDate date((char *)value->data);
     int date_int = date.toInt();
     update_desc.value = (void *)&date_int;
-  } else {
-    update_desc.value = value->data;
+    // update_desc.value = value->data;
   }
+  break;
+  case DATES_NULLABLE:
+  {
+    if (value->type != CHARS && value->type != IS_NULL) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    if (value->type == CHARS) {
+      update_desc.is_attr = true;
+      update_desc.attr_length = field_update->len() + 4;
+      update_desc.attr_offset = field_update->offset();
+      MyDate date((char *)value->data);
+      int date_int = date.toInt();
+      // update_desc.value = (void *)&date_int;
+      update_desc.value = new char[field_update->len() + 4];
+      // update_desc.value = value->data;
+      memcpy(update_desc.value, (void *)&date_int, field_update->len());
+      memcpy(update_desc.value + field_update->len(), &not_null, 4);
+      // delete update_desc.value;
+    } else {
+      update_desc.is_attr = true;
+      update_desc.attr_length = 4;
+      update_desc.attr_offset = field_update->offset() + field_update->len();
+      update_desc.value = &is_null;
+    }
+  }
+  break;
+  default:
+  {
+    // LOG_PANIC("Unsupported field type. type=%d", field_meta->type());
+  }
+  }
+
+  // update_desc.is_attr = true;
+  // update_desc.attr_length = field_update->len();
+  // update_desc.attr_offset = field_update->offset();
+  // if (field_update->type() == DATES) {
+  //   MyDate date((char *)value->data);
+  //   int date_int = date.toInt();
+  //   update_desc.value = (void *)&date_int;
+  // } else {
+  //   update_desc.value = value->data;
+  // }
   
   return table->update_record(trx, &condition_filter, &update_desc, updated_count);
 }

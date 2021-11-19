@@ -52,6 +52,11 @@ void value_init_string(Value *value, const char *v) {
   value->type = CHARS;
   value->data = strdup(v);
 }
+void value_init_null(Value *value) {
+  value->type = IS_NULL;
+  value->data = nullptr;
+}
+
 void value_destroy(Value *value) {
   value->type = UNDEFINED;
   free(value->data);

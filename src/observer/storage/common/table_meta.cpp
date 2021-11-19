@@ -80,7 +80,11 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
+    if (attr_info.type != IF_NULL) {
+      rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
+    } else {
+      rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, false);
+    }
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
@@ -110,6 +114,16 @@ const FieldMeta * TableMeta::trx_field() const {
 }
 
 const FieldMeta * TableMeta::field(int index) const {
+  // int pos = 0;
+  for (int i=0; i<index; i++) {
+    const FieldMeta &field_meta = fields_[i];
+    if (field_meta.type() == INTS_NULLABLE 
+      || field_meta.type() == CHARS_NULLABLE
+      || field_meta.type() == FLOATS_NULLABLE
+      || field_meta.type() == DATES_NULLABLE) {
+      index++;
+    }
+  }
   return &fields_[index];
 }
 const FieldMeta * TableMeta::field(const char *name) const {
@@ -133,11 +147,31 @@ const FieldMeta * TableMeta::find_field_by_offset(int offset) const {
   return nullptr;
 }
 int TableMeta::field_num() const {
-  return fields_.size();
+  // return fields_.size();
+  int num = 0;
+  for (const FieldMeta &field:fields_) {
+    AttrType type = field.type();
+    if (type != IF_NULL) {
+      num++;
+    }
+  }
+  return num;
+}
+
+int TableMeta::nullable_field_num() const {
+  int num = 0;
+  for (const FieldMeta &field:fields_) {
+    AttrType type = field.type();
+    if (type == INTS_NULLABLE || type == FLOATS_NULLABLE || type == CHARS_NULLABLE || type == DATES_NULLABLE) {
+      num++;
+    }
+  }
+  return num;
 }
 
 int TableMeta::sys_field_num() const {
   return sys_fields_.size();
+  
 }
 
 const IndexMeta * TableMeta::index(const char *name) const {
@@ -168,6 +202,24 @@ int TableMeta::index_num() const {
 
 int TableMeta::record_size() const {
   return record_size_;
+}
+
+// int set_null_offset(int i);
+int TableMeta::set_null_offset(int index) {
+  // int pos = 0;
+  for (int i=0; i<=index; i++) {
+    const FieldMeta &field_meta = fields_[i];
+    if (field_meta.type() == INTS_NULLABLE 
+      || field_meta.type() == CHARS_NULLABLE
+      || field_meta.type() == FLOATS_NULLABLE
+      || field_meta.type() == DATES_NULLABLE) {
+      index++;
+    }
+    // pos++;
+  }
+  const FieldMeta &field = fields_[index];
+  // memset(record + field.offset(), 1, field.len());
+  return field.offset();
 }
 
 int TableMeta::serialize(std::ostream &ss) const {

@@ -57,6 +57,10 @@ void Tuple::add(const char *s, int len) {
   add(new StringValue(s, len));
 }
 
+void Tuple::add() {
+  add(new NullValue());
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string TupleField::to_string() const {
@@ -388,6 +392,9 @@ std::string TupleSet::header_to_string(bool printTableName) const {
 
 bool compare_tuple( Tuple *tuple_p1, Tuple *tuple_p2, std::vector<int> &indexs, std::vector<int> &orders) {
   for (int i = 0; i<indexs.size(); i++) {
+    if (tuple_p1->get_pointer(indexs[i])->type() == IS_NULL || tuple_p2->get_pointer(indexs[i])->type() == IS_NULL) {
+      return false;
+    }
     int cmp = tuple_p1->get_pointer(indexs[i])->compare(*(tuple_p2->get_pointer(indexs[i])));
     if (orders[i] > 0) {
       if (cmp > 0) {
@@ -530,9 +537,29 @@ void TupleRecordConverter::add_record(const char *record) {
         tuple.add(value);
       }
       break;
+      case INTS_NULLABLE: {
+        int is_null = *(int*)(record + field_meta->offset() + field_meta->len());
+        if (is_null == 1) {
+          tuple.add();
+        } else {
+          int value = *(int*)(record + field_meta->offset());
+          tuple.add(value);
+        }
+      }
+      break;
       case FLOATS: {
         float value = *(float *)(record + field_meta->offset());
         tuple.add(value);
+      }
+      break;
+      case FLOATS_NULLABLE: {
+        int is_null = *(int*)(record + field_meta->offset() + field_meta->len());
+        if (is_null == 1) {
+          tuple.add();
+        } else {
+          int value = *(float*)(record + field_meta->offset());
+          tuple.add(value);
+        }
       }
       break;
       case CHARS: {
@@ -542,6 +569,20 @@ void TupleRecordConverter::add_record(const char *record) {
           tuple.add(s, length);
         else  
           tuple.add(s, strlen(s));
+      }
+      break;
+      case CHARS_NULLABLE: {
+        int is_null = *(int*)(record + field_meta->offset() + field_meta->len());
+        if (is_null == 1) {
+          tuple.add();
+        } else {
+          const char *s = record + field_meta->offset();  // 现在当做Cstring来处理
+          int length = field_meta->len();
+          if(length < strlen(s))
+            tuple.add(s, length);
+          else  
+            tuple.add(s, strlen(s));
+        }
       }
       break;
       case DATES: {
@@ -555,11 +596,28 @@ void TupleRecordConverter::add_record(const char *record) {
         tuple.add(date_cstr, strlen(date_cstr));
       }
       break;
+      case DATES_NULLABLE: {
+        int is_null = *(int*)(record + field_meta->offset() + field_meta->len());
+        if (is_null == 1) {
+          tuple.add();
+        } else {
+          int date_int = *(int*)(record + field_meta->offset());
+          // tuple.add(value);
+          // char date_str[11] = {0, };
+          // int2date(date, date_str);
+          MyDate date(date_int);
+          const char *date_cstr = date.toCStr();
+          tuple.add(date_cstr, strlen(date_cstr));
+        }
+      }
+      break;
       default: {
         LOG_PANIC("Unsupported field type. type=%d", field_meta->type());
       }
     }
   }
+
+  // for ()
 
   tuple_set_.add(std::move(tuple));
 }
