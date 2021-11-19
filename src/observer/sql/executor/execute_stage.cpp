@@ -530,7 +530,7 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       div_count++;
     }
     if (all_null) {
-      // tuple.add();
+      tuple.add();
     } else {
       if (div_count != 0) {
       avg /= div_count;
