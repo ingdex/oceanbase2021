@@ -1994,7 +1994,7 @@ RC BplusTreeScanner::get_next_idx_in_memory(RID *rid) {
 
     index_in_node_ = 0;
   }
-  return RC::SUCCESS;
+  return RC::RECORD_NO_MORE_IDX_IN_MEM;
 }
 bool BplusTreeScanner::satisfy_condition(const char *pkey) {
   int i1=0,i2=0;
