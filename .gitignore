@@ -5,3 +5,4 @@
 /deps/libevent/build
 /miniob
 /observer.log*
+.gitmodules
