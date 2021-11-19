@@ -432,11 +432,13 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
   // std::cout << os.str() << std::endl;
   if (type == MAX) {
     const std::shared_ptr<TupleValue> *p_value = nullptr;
+    bool has_null = false;
     for (size_t i=0; i<tuple_set.size(); i++) {
       const Tuple &tuple_ = tuple_set.get(i);
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       if (value_->type() == IS_NULL) {
-        continue;
+        has_null = true;
+        break;
       }
       if (p_value == nullptr) {
         p_value = &value_;
@@ -447,20 +449,24 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
         p_value = &value_;
       }
     }
-    if (p_value == nullptr) {
+    if (p_value == nullptr || has_null == true) {
       // todo: 使用null类型
     } else {
       tuple.add(*p_value);
     }
   } else if (type == MIN) {
+    bool has_null = false;
     const std::shared_ptr<TupleValue> *p_value = nullptr;
     for (size_t i=0; i<tuple_set.size(); i++) {
       const Tuple &tuple_ = tuple_set.get(i);
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       if (value_->type() == IS_NULL) {
-        continue;
+        has_null = true;
+        break;
+        // continue;
       }
       if (p_value == nullptr) {
+        
         p_value = &value_;
         continue;
       }
@@ -469,7 +475,7 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
         p_value = &value_;
       }
     }
-    if (p_value == nullptr) {
+    if (p_value == nullptr || has_null == true) {
       // todo: 使用null类型
     } else {
       tuple.add(*p_value);
@@ -498,6 +504,7 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       // todo: 使用null类型
       return;
     }
+    bool has_null = false;
     const std::shared_ptr<TupleValue> *p_value = &(tuple_set.get(0).get_pointer(index));
     AttrType type = (*p_value)->type();
     float avg = 0;
@@ -507,15 +514,22 @@ void get_tuple_value(TupleSet &tuple_set, Tuple &tuple, AGGREGATION_TYPE type, i
       const std::shared_ptr<TupleValue> &value_ = tuple_.get_pointer(index);
       // std::cout << value_->to_string() << std::endl;
       if (value_->type() == IS_NULL) {
-        continue;
+        has_null = true;
+        // continue;
+        break;
       }
       avg += std::stof(value_->to_string());
       div_count++;
     }
-    if (div_count != 0) {
+    if (has_null) {
+      tuple.add();
+    } else {
+      if (div_count != 0) {
       avg /= div_count;
+      }
+      tuple.add(new FloatValue(avg));
     }
-    tuple.add(new FloatValue(avg));
+    
   }
   if (group_by_list.size() > 0 && tuple_set.size() > 0 && add_group_by_value) {
     const Tuple &tuple_ = tuple_set.get(0);
