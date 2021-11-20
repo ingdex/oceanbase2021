@@ -1094,7 +1094,7 @@ condition:
 			relation_attr_init(&right_attr, NULL, $3);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 1, &left_attr, NULL, 1, &right_attr, NULL);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1103,7 +1103,7 @@ condition:
 			// $$->left_is_attr = 1;
 			// $$->left_attr.relation_name=NULL;
 			// $$->left_attr.attribute_name=$1;
-			// $$->comp = CONTEXT->comp[CONTEXT->comp_length-1];
+			// $$->comp = CONTEXT->comp[(CONTEXT->comp_length--)-1];
 			// $$->right_is_attr = 1;
 			// $$->right_attr.relation_name=NULL;
 			// $$->right_attr.attribute_name=$3;
@@ -1116,7 +1116,7 @@ condition:
 			relation_attr_init(&right_attr, NULL, $3);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 0, NULL, left_value, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 0, NULL, left_value, 1, &right_attr, NULL);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1127,7 +1127,7 @@ condition:
 			// $$->left_attr.relation_name=NULL;
 			// $$->left_attr.attribute_name=NULL;
 			// $$->left_value = *$1;
-			// $$->comp=CONTEXT->comp[CONTEXT->comp_length-1];
+			// $$->comp=CONTEXT->comp[(CONTEXT->comp_length--)-1];
 			
 			// $$->right_is_attr = 1;
 			// $$->right_attr.relation_name=NULL;
@@ -1141,7 +1141,7 @@ condition:
 			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, 0, NULL, right_value);
+			condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 1, &left_attr, NULL, 0, NULL, right_value);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1151,7 +1151,7 @@ condition:
 			// $$->left_is_attr = 1;
 			// $$->left_attr.relation_name=$1;
 			// $$->left_attr.attribute_name=$3;
-			// $$->comp=CONTEXT->comp[CONTEXT->comp_length-1];
+			// $$->comp=CONTEXT->comp[(CONTEXT->comp_length--)-1];
 			// $$->right_is_attr = 0;   //属性值
 			// $$->right_attr.relation_name=NULL;
 			// $$->right_attr.attribute_name=NULL;
@@ -1166,7 +1166,7 @@ condition:
 			relation_attr_init(&right_attr, $3, $5);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 0, NULL, left_value, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 0, NULL, left_value, 1, &right_attr, NULL);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1176,7 +1176,7 @@ condition:
 			// $$->left_attr.relation_name=NULL;
 			// $$->left_attr.attribute_name=NULL;
 			// $$->left_value = *$1;
-			// $$->comp =CONTEXT->comp[CONTEXT->comp_length-1];
+			// $$->comp =CONTEXT->comp[(CONTEXT->comp_length--)-1];
 			// $$->right_is_attr = 1;//属性
 			// $$->right_attr.relation_name = $3;
 			// $$->right_attr.attribute_name = $5;
@@ -1190,7 +1190,7 @@ condition:
 			relation_attr_init(&right_attr, $5, $7);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 1, &left_attr, NULL, 1, &right_attr, NULL);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1199,7 +1199,7 @@ condition:
 			// $$->left_is_attr = 1;		//属性
 			// $$->left_attr.relation_name=$1;
 			// $$->left_attr.attribute_name=$3;
-			// $$->comp =CONTEXT->comp[CONTEXT->comp_length-1];
+			// $$->comp =CONTEXT->comp[(CONTEXT->comp_length--)-1];
 			// $$->right_is_attr = 1;		//属性
 			// $$->right_attr.relation_name=$5;
 			// $$->right_attr.attribute_name=$7;
@@ -1287,7 +1287,7 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, right_select);
+			select_condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 1, &left_attr, NULL, right_select);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1304,7 +1304,7 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, right_select);
+			select_condition_init(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], 1, &left_attr, NULL, right_select);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
@@ -1320,16 +1320,16 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			if (CONTEXT->comp[CONTEXT->comp_length-1] == LESS_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_THAN;
-			} else if (CONTEXT->comp[CONTEXT->comp_length-1] == GREAT_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_THAN;
-			} else if (CONTEXT->comp[CONTEXT->comp_length-1] == LESS_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_EQUAL;
-			} else if (CONTEXT->comp[CONTEXT->comp_length-1] == GREAT_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_EQUAL;
+			if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
 			}
-			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, right_select);
+			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length], 1, &left_attr, NULL, right_select);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			printf("CONTEXT->condition_list_stack_top: %d\n", CONTEXT->condition_list_stack_top);
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
@@ -1347,16 +1347,16 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			if (CONTEXT->comp[CONTEXT->comp_length-1] == LESS_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_THAN;
-			} else if (CONTEXT->comp[CONTEXT->comp_length-1] == GREAT_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_THAN;
-			} else if (CONTEXT->comp[CONTEXT->comp_length-1] == LESS_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_EQUAL;
-			} else if (CONTEXT->comp[CONTEXT->comp_length-1] == GREAT_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_EQUAL;
+			if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
 			}
-			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, right_select);
+			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length], 1, &left_attr, NULL, right_select);
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
