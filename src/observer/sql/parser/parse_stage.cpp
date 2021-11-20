@@ -121,12 +121,12 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
 
   RC ret = parse(sql.c_str(), result);
 
-  static std::ostringstream ss;
-  ss << sql.c_str();
-  if (result->flag == SCF_SELECT) {
-    sql_event->session_event()->set_response(ss.str());
-    return nullptr;
-  }
+  // static std::ostringstream ss;
+  // ss << sql.c_str();
+  // if (result->flag == SCF_SELECT) {
+  //   sql_event->session_event()->set_response(ss.str());
+  //   return nullptr;
+  // }
   if (ret != RC::SUCCESS) {
     // set error information to event
     // const char *error = result->sstr.errors != nullptr ? result->sstr.errors : "Unknown error";

@@ -935,6 +935,7 @@ Index *Table::find_index(const char *index_name) const {
 }
 
 IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
+  return nullptr;
   const ConDesc *field_cond_desc = nullptr;
   const ConDesc *value_cond_desc = nullptr;
   if (filter.left().is_attr && !filter.right().is_attr) {
