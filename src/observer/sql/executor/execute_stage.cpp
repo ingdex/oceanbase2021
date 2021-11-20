@@ -1219,12 +1219,24 @@ RC select_condition_to_normal_condition(const char *db, Trx *trx, const Conditio
     return RC::SUCCESS;
     // re_condition
   } else {
-    // char *aggregation_filed, *field_name;
-    // bool flag = is_aggregation_schema_(selects->attributes[0].attribute_name, aggregation_filed, field_name);
-    // if ((!flag && select_condition.comp != IN) ||
-    //     (!flag && select_condition.comp != NOT_IN)) {
-    //   return RC::GENERIC_ERROR;
-    // }
+    char *aggregation_filed, *field_name;
+    bool flag = is_aggregation_schema_(selects->attributes[0].attribute_name, aggregation_filed, field_name);
+    if ((!flag && select_condition.comp != IN) ||
+        (!flag && select_condition.comp != NOT_IN)) {
+      return RC::GENERIC_ERROR;
+    }
+    for (int i=0; i<selects->condition_num; i++) {
+    if (selects->conditions[i].is_select) {
+        Condition normal_condition;
+        RC rc = select_condition_to_normal_condition(db, trx, select_condition, normal_condition);
+        
+        if (rc != RC::SUCCESS) {
+          return RC::GENERIC_ERROR;
+        }
+        selects->conditions[i] = normal_condition;
+      }
+    }
+    
   }
 }
 
