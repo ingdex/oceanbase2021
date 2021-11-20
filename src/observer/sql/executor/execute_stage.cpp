@@ -1207,6 +1207,9 @@ RC select_condition_to_normal_condition(const char *db, Trx *trx, const Conditio
   TupleSet re_tuple_set;
   RC rc;
   if (has_no_sub_query(selects)) {
+    if (selects->attr_num != 1) {
+      return RC::GENERIC_ERROR;
+    }
     rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
     if (rc != RC::SUCCESS) {
       return rc;
