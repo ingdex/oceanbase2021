@@ -337,6 +337,29 @@ bool DefaultConditionFilter::filter(const Record &rec) const
               return false;
           }
         }
+        if (comp_op_ == IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return true;
+            }
+          }
+          return false;
+        } else if (comp_op_ == NOT_IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return false;
+            }
+          }
+          return true;
+        }
         std::string value_str = tuple_value.to_string();
         float right = std::stof(value_str);
         float re = left - right;
@@ -384,6 +407,29 @@ bool DefaultConditionFilter::filter(const Record &rec) const
               return false;
           }
         }
+        if (comp_op_ == IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return true;
+            }
+          }
+          return false;
+        } else if (comp_op_ == NOT_IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return false;
+            }
+          }
+          return true;
+        }
         std::string value_str = tuple_value.to_string();
         float right = std::stof(value_str);
         float re = left - right;
@@ -421,6 +467,29 @@ bool DefaultConditionFilter::filter(const Record &rec) const
             default:
               return false;
           }
+        }
+        if (comp_op_ == IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return true;
+            }
+          }
+          return false;
+        } else if (comp_op_ == NOT_IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return false;
+            }
+          }
+          return true;
         }
         std::string value_str = tuple_value.to_string();
         float right = std::stof(value_str);
@@ -473,6 +542,29 @@ bool DefaultConditionFilter::filter(const Record &rec) const
             default:
               return false;
           }
+        }
+        if (comp_op_ == IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return true;
+            }
+          }
+          return false;
+        } else if (comp_op_ == NOT_IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(0);
+            std::string value_str = tuple_value.to_string();
+            float right = std::stof(value_str);
+            float re = left - right;
+            if (re == 0) {
+              return false;
+            }
+          }
+          return true;
         }
         std::string value_str = tuple_value.to_string();
         float right = std::stof(value_str);
