@@ -184,9 +184,27 @@ const IndexMeta * TableMeta::index(const char *name) const {
 }
 
 const IndexMeta * TableMeta::find_index_by_field(const char *field) const {
+  int i = 0;
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
+    if (0 == strcmp(index.field(i), field)) {
       return &index;
+    }
+  }
+  return nullptr;
+}
+
+const IndexMeta * TableMeta::find_index_by_fields(char * const field[], const int &file_num) const {
+  for (const IndexMeta &index : indexes_) {
+    if(index.file_num() == file_num) {
+      bool flag = true;
+      for(int i =0; i < file_num; i++) {
+        if (0 != strcmp(index.field(i), field[i])) {
+          flag = false;
+          break;
+        }
+      }
+      if(flag = true)
+        return &index;
     }
   }
   return nullptr;

@@ -14,9 +14,14 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/common/index.h"
 
-RC Index::init(const IndexMeta &index_meta, const FieldMeta &field_meta) {
+RC Index::init(const IndexMeta &index_meta, const FieldMeta *field_meta[]) {
   index_meta_ = index_meta;
-  field_meta_ = field_meta;
+  int size = index_meta.file_num();
+
+  field_meta_ = new FieldMeta[size];
+  for(int i = 0; i < size; i++) {
+    field_meta_[i] = *field_meta[i];
+  }
   return RC::SUCCESS;
 }
 

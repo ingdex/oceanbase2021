@@ -17,14 +17,17 @@ See the Mulan PSL v2 for more details. */
 #include "record_manager.h"
 #include "storage/default/disk_buffer_pool.h"
 #include "sql/parser/parse_defs.h"
-
+#include "storage/common/field_meta.h"
+// mjy 改为多个attr_length 多个attr_type
 struct IndexFileHeader {
-  int attr_length;
+  int *attr_length;
   int key_length;
-  AttrType attr_type;
+  AttrType *attr_type;
   PageNum root_page; // 初始时，root_page一定是1
   int node_num;
   int order;
+  int total_attr_length;
+  int file_num;
 };
 
 struct IndexNode {
@@ -56,7 +59,7 @@ public:
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(const char *file_name, AttrType attr_type, int attr_length);
+  RC create(const char *file_name, const FieldMeta * field_meta[], const int field_num);
 
   /**
    * 打开名为fileName的索引文件。

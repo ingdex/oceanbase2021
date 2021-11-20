@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 
+#include <string>
+
 int float_compare(float f1, float f2) {
   float result = f1 - f2;
   if (result < 1e-6 && result > -1e-6) {
@@ -36,7 +38,8 @@ RC BplusTreeHandler::sync() {
   return disk_buffer_pool_->flush_all_pages(file_id_);
 }
 
-RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_length)
+// mjy 改为多个 key由多个字段拼接
+RC BplusTreeHandler::create(const char *file_name, const FieldMeta * field_meta[], const int field_num)
 {
   BPPageHandle page_handle;
   IndexNode *root;
@@ -72,17 +75,30 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
     return rc;
   }
   IndexFileHeader *file_header =(IndexFileHeader *)pdata;
-  if (attr_type == INTS_NULLABLE 
-    || attr_type == CHARS_NULLABLE
-    || attr_type == FLOATS_NULLABLE
-    || attr_type == DATES_NULLABLE) {
-    attr_length += 4;
+  file_header->file_num = field_num;
+  file_header->attr_length = new int[field_num];
+  file_header->attr_type = new AttrType[field_num];
+  for(int i =0; i < field_num; i++) {
+    file_header->attr_type[i] = field_meta[i]->type();
+    if (field_meta[i]->type() == INTS_NULLABLE 
+      || field_meta[i]->type() == CHARS_NULLABLE
+      || field_meta[i]->type() == FLOATS_NULLABLE
+      || field_meta[i]->type() == DATES_NULLABLE) {
+      file_header->attr_length[i] = field_meta[i]->len() + 4;
+    }
+    else {
+      file_header->attr_length[i] = field_meta[i]->len(); 
+    }
+    file_header->total_attr_length += file_header->attr_length[i];
   }
-  file_header->attr_length = attr_length;
-  file_header->key_length = attr_length + sizeof(RID);
-  file_header->attr_type = attr_type;
+
+  //file_header->attr_length = attr_length;
+  //file_header->key_length = attr_length + sizeof(RID);
+  //file_header->attr_type = attr_type;
+  file_header->key_length = file_header->total_attr_length + sizeof(RID);
   file_header->node_num = 1;
-  file_header->order=((int)BP_PAGE_DATA_SIZE-sizeof(IndexFileHeader)-sizeof(IndexNode))/(attr_length+2*sizeof(RID));
+  //file_header->order=((int)BP_PAGE_DATA_SIZE-sizeof(IndexFileHeader)-sizeof(IndexNode))/(attr_length+2*sizeof(RID));
+  file_header->order=((int)BP_PAGE_DATA_SIZE-sizeof(IndexFileHeader)-sizeof(IndexNode))/(file_header->total_attr_length+2*sizeof(RID));
   file_header->root_page = page_num;
 
   root = get_index_node(pdata);
@@ -164,157 +180,188 @@ static int CmpRid(const RID *rid1, const RID *rid2) {
     return -1;
   return 0;
 }
-int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_length) { // 简化
+int CompareKey(const char *pdata, const char *pkey,AttrType *attr_type,int *attr_length, const int &file_num) { // 简化
   int i1,i2;
   float f1,f2;
   const char *s1,*s2;
   int is_null1, is_null2;
-  switch(attr_type){
-    case INTS: {
-      i1 = *(int *) pdata;
-      i2 = *(int *) pkey;
-      if (i1 > i2)
-        return 1;
-      if (i1 < i2)
-        return -1;
-      if (i1 == i2)
-        return 0;
-    }
-      break;
-    case INTS_NULLABLE: {
-      i1 = *(int *) pdata;
-      // i2 = *(int *) pkey;
-      is_null1 = *(int *) (pdata + attr_length - 4);
-      // is_null2 = *(int *) (pkey + attr_length - 4);
-      if (pkey == nullptr) {
-        i2 = 0;
-        is_null2 = 1;
-      } else {
-        i2 = *(int *) pkey;
-        is_null2 = *(int *) (pkey + attr_length - 4);
+
+  std::string pdata_str = pdata;
+  std::string pkey_str = pkey;
+  int len = 0;
+  for(int i= 0; i < file_num; i++) {
+    AttrType my_attr_type = attr_type[i];
+    int my_attr_length = attr_length[i];
+    std::string temp1 = pdata_str.substr(len,my_attr_length);
+    std::string temp2 = pkey_str.substr(len,my_attr_length);
+    const char *data = temp1.c_str();
+    const char *key = temp2.c_str();
+    len += my_attr_length;
+    switch(my_attr_type){
+      case INTS: {
+        i1 = *(int *) data;
+        i2 = *(int *) key;
+        if (i1 > i2)
+          return 1;
+        if (i1 < i2)
+          return -1;
+        if (i1 == i2)
+          continue;
       }
-      if (is_null1 == 1 && is_null2 == 1) {
-        return 0;
-      } else if (is_null1 == 1 && is_null2 != 1) {
-        return 1;
-      } else if (is_null1 != 1 && is_null2 == 1) {
-        return 0;
+        break;
+      case INTS_NULLABLE: {
+        i1 = *(int *) data;
+        // i2 = *(int *) pkey;
+        is_null1 = *(int *) (data + my_attr_length - 4);
+        // is_null2 = *(int *) (pkey + attr_length - 4);
+        if (key == nullptr) {
+          i2 = 0;
+          is_null2 = 1;
+        } else {
+          i2 = *(int *) key;
+          is_null2 = *(int *) (key + my_attr_length - 4);
+        }
+        if (is_null1 == 1 && is_null2 == 1) {
+          continue;
+        } else if (is_null1 == 1 && is_null2 != 1) {
+          return 1;
+        } else if (is_null1 != 1 && is_null2 == 1) {
+          continue;
+        }
+        if (i1 > i2)
+          return 1;
+        if (i1 < i2)
+          return -1;
+        if (i1 == i2)
+          continue;
       }
-      if (i1 > i2)
-        return 1;
-      if (i1 < i2)
-        return -1;
-      if (i1 == i2)
-        return 0;
-    }
-      break;
-    case FLOATS: {
-      f1 = *(float *) pdata;
-      f2 = *(float *) pkey;
-      return float_compare(f1, f2);
-    }
-      break;
-    case FLOATS_NULLABLE: {
-      f1 = *(float *) pdata;
-      // f2 = *(float *) pkey;
-      is_null1 = *(int *) (pdata + attr_length - 4);
-      // is_null2 = *(int *) (pkey + attr_length - 4);
-      if (pkey == nullptr) {
-        f2 = 0;
-        is_null2 = 1;
-      } else {
-        f2 = *(float *) pkey;
-        is_null2 = *(int *) (pkey + attr_length - 4);
+        break;
+      case FLOATS: {
+        f1 = *(float *) data;
+        f2 = *(float *) key;
+        //return float_compare(f1, f2);
+        int ret = float_compare(f1, f2);
+        if(ret != 0)
+          return ret;
+        else 
+          continue;
       }
-      if (is_null1 == 1 && is_null2 == 1) {
-        return 0;
-      } else if (is_null1 == 1 && is_null2 != 1) {
-        return 1;
-      } else if (is_null1 != 1 && is_null2 == 1) {
-        return 0;
+        break;
+      case FLOATS_NULLABLE: {
+        f1 = *(float *) data;
+        // f2 = *(float *) pkey;
+        is_null1 = *(int *) (data + my_attr_length - 4);
+        // is_null2 = *(int *) (pkey + attr_length - 4);
+        if (key == nullptr) {
+          f2 = 0;
+          is_null2 = 1;
+        } else {
+          f2 = *(float *) key;
+          is_null2 = *(int *) (key + my_attr_length - 4);
+        }
+        if (is_null1 == 1 && is_null2 == 1) {
+          continue;
+        } else if (is_null1 == 1 && is_null2 != 1) {
+          return 1;
+        } else if (is_null1 != 1 && is_null2 == 1) {
+          continue;
+        }
+        int ret = float_compare(f1, f2);
+        if(ret != 0)
+          return ret;
+        else 
+          continue;
       }
-      return float_compare(f1, f2);
-    }
-      break;
-    case CHARS: {
-      s1 = pdata;
-      s2 = pkey;
-      return strncmp(s1, s2, attr_length);
-    }
-      break;
-    case CHARS_NULLABLE: {
-      s1 = pdata;
-      // s2 = pkey;
-      is_null1 = *(int *) (pdata + attr_length - 4);
-      // is_null2 = *(int *) (pkey + attr_length - 4);
-      if (pkey == nullptr) {
-        s2 = 0;
-        is_null2 = 1;
-      } else {
-        s2 = pkey;
-        is_null2 = *(int *) (pkey + attr_length - 4);
+        break;
+      case CHARS: {
+        s1 = data;
+        s2 = key;
+        int ret = strncmp(s1, s2, my_attr_length);
+        if(ret != 0)
+          return ret;
+        else 
+          continue;
       }
-      if (is_null1 == 1 && is_null2 == 1) {
-        return 0;
-      } else if (is_null1 == 1 && is_null2 != 1) {
-        return 1;
-      } else if (is_null1 != 1 && is_null2 == 1) {
-        return 0;
+        break;
+      case CHARS_NULLABLE: {
+        s1 = data;
+        // s2 = pkey;
+        is_null1 = *(int *) (data + my_attr_length - 4);
+        // is_null2 = *(int *) (pkey + attr_length - 4);
+        if (key == nullptr) {
+          s2 = 0;
+          is_null2 = 1;
+        } else {
+          s2 = key;
+          is_null2 = *(int *) (key + my_attr_length - 4);
+        }
+        if (is_null1 == 1 && is_null2 == 1) {
+          continue;
+        } else if (is_null1 == 1 && is_null2 != 1) {
+          return 1;
+        } else if (is_null1 != 1 && is_null2 == 1) {
+          continue;
+        }
+        int ret = strncmp(s1, s2, my_attr_length);
+        if(ret != 0)
+          return ret;
+        else 
+          continue;
       }
-      return strncmp(s1, s2, attr_length);
-    }
-      break;
-    case DATES: {
-      i1 = *(int *) pdata;
-      i2 = *(int *) pkey;
-      if (i1 > i2)
-        return 1;
-      if (i1 < i2)
-        return -1;
-      if (i1 == i2)
-        return 0;
-    }
-      break;
-    case DATES_NULLABLE: {
-      i1 = *(int *) pdata;
-      is_null1 = *(int *) (pdata + attr_length - 4);
-      if (pkey == nullptr) {
-        i2 = 0;
-        is_null2 = 1;
-      } else {
-        i2 = *(int *) pkey;
-        is_null2 = *(int *) (pkey + attr_length - 4);
+        break;
+      case DATES: {
+        i1 = *(int *) data;
+        i2 = *(int *) key;
+        if (i1 > i2)
+          return 1;
+        if (i1 < i2)
+          return -1;
+        if (i1 == i2)
+          continue;
       }
+        break;
+      case DATES_NULLABLE: {
+        i1 = *(int *) data;
+        is_null1 = *(int *) (data + my_attr_length - 4);
+        if (key == nullptr) {
+          i2 = 0;
+          is_null2 = 1;
+        } else {
+          i2 = *(int *) key;
+          is_null2 = *(int *) (key + my_attr_length - 4);
+        }
       
-      if (is_null1 == 1 && is_null2 == 1) {
-        return 0;
-      } else if (is_null1 == 1 && is_null2 != 1) {
-        return 1;
-      } else if (is_null1 != 1 && is_null2 == 1) {
-        return 0;
+        if (is_null1 == 1 && is_null2 == 1) {
+          continue;
+        } else if (is_null1 == 1 && is_null2 != 1) {
+          return 1;
+        } else if (is_null1 != 1 && is_null2 == 1) {
+          continue;
+        }
+        if (i1 > i2)
+          return 1;
+        if (i1 < i2)
+          return -1;
+        if (i1 == i2)
+          continue;
       }
-      if (i1 > i2)
-        return 1;
-      if (i1 < i2)
-        return -1;
-      if (i1 == i2)
-        return 0;
-    }
-      break;
-    default:{
-      LOG_PANIC("Unknown attr type: %d", attr_type);
+        break;
+      default:{
+        LOG_PANIC("Unknown attr type: %d", my_attr_type);
+        return -2;//This means error happens
+      }
     }
   }
-  return -2;//This means error happens
+  return 0;
 }
-int CmpKey(AttrType attr_type, int attr_length, const char *pdata, const char *pkey)
+int CmpKey(AttrType *attr_type, int *attr_length, const char *pdata, const char *pkey, const int &file_num, const int &total_attr_length)
 {
-  int result = CompareKey(pdata, pkey, attr_type, attr_length);
+  int result = CompareKey(pdata, pkey, attr_type, attr_length, file_num);
   if (0 != result) {
     return result;
   }
-  RID *rid1 = (RID *) (pdata + attr_length);
-  RID *rid2 = (RID *) (pkey + attr_length);
+  RID *rid1 = (RID *) (pdata + total_attr_length);//mjy 需要修改
+  RID *rid2 = (RID *) (pkey + total_attr_length);
   return CmpRid(rid1, rid2);
 }
 
@@ -336,7 +383,7 @@ RC BplusTreeHandler::find_leaf(const char *pkey,PageNum *leaf_page) {
   node = get_index_node(pdata);
   while(0 == node->is_leaf){
     for(i = 0; i < node->key_num; i++){
-      tmp = CmpKey(file_header_.attr_type, file_header_.attr_length,pkey,node->keys + i * file_header_.key_length);
+      tmp = CmpKey(file_header_.attr_type, file_header_.attr_length,pkey,node->keys + i * file_header_.key_length, file_header_.file_num, file_header_.total_attr_length);
       if(tmp < 0)
         break;
     }
@@ -385,7 +432,7 @@ RC BplusTreeHandler::insert_into_leaf(PageNum leaf_page, const char *pkey, const
   node = get_index_node(pdata);
 
   for(insert_pos = 0; insert_pos < node->key_num; insert_pos++){
-    tmp = CmpKey(file_header_.attr_type, file_header_.attr_length, pkey, node->keys + insert_pos * file_header_.key_length);
+    tmp = CmpKey(file_header_.attr_type, file_header_.attr_length, pkey, node->keys + insert_pos * file_header_.key_length, file_header_.file_num, file_header_.total_attr_length);
     if (tmp == 0) {
       return RC::RECORD_DUPLICATE_KEY;
     }
@@ -505,7 +552,7 @@ RC BplusTreeHandler::insert_into_leaf_after_split(PageNum leaf_page, const char 
   }
 
   for(insert_pos=0;insert_pos<leaf->key_num;insert_pos++){
-    tmp=CmpKey(file_header_.attr_type, file_header_.attr_length, pkey, leaf->keys+insert_pos*file_header_.key_length);
+    tmp=CmpKey(file_header_.attr_type, file_header_.attr_length, pkey, leaf->keys+insert_pos*file_header_.key_length, file_header_.file_num, file_header_.total_attr_length);
     if(tmp<0)
       break;
   }
@@ -917,8 +964,8 @@ RC BplusTreeHandler::insert_entry(const char *pkey, const RID *rid) {
     LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
-  memcpy(key,pkey,file_header_.attr_length);
-  memcpy(key + file_header_.attr_length, rid, sizeof(*rid));
+  memcpy(key,pkey,file_header_.total_attr_length);
+  memcpy(key + file_header_.total_attr_length, rid, sizeof(*rid));
   rc= find_leaf(key, &leaf_page);
   if(rc!=SUCCESS){
     free(key);
@@ -980,8 +1027,8 @@ RC BplusTreeHandler::get_entry(const char *pkey,RID *rid) {
     LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
-  memcpy(key,pkey,file_header_.attr_length);
-  memcpy(key+file_header_.attr_length,rid,sizeof(RID));
+  memcpy(key,pkey,file_header_.total_attr_length);
+  memcpy(key+file_header_.total_attr_length,rid,sizeof(RID));
 
   rc=find_leaf(key,&leaf_page);
   if(rc!=SUCCESS){
@@ -1002,7 +1049,7 @@ RC BplusTreeHandler::get_entry(const char *pkey,RID *rid) {
 
   leaf = get_index_node(pdata);
   for(i=0;i<leaf->key_num;i++){
-    if(CmpKey(file_header_.attr_type, file_header_.attr_length,key,leaf->keys+(i*file_header_.key_length))==0){
+    if(CmpKey(file_header_.attr_type, file_header_.attr_length,key,leaf->keys+(i*file_header_.key_length), file_header_.file_num, file_header_.total_attr_length)==0){
       memcpy(rid,leaf->rids+i,sizeof(RID));
       free(key);
       return SUCCESS;
@@ -1025,8 +1072,8 @@ RC BplusTreeHandler::search_key(const char *pkey,RID *rid) {
     LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
-  memcpy(key,pkey,file_header_.attr_length);
-  memcpy(key+file_header_.attr_length,rid,sizeof(RID));
+  memcpy(key,pkey,file_header_.total_attr_length);
+  memcpy(key+file_header_.total_attr_length,rid,sizeof(RID));
 
   rc=find_leaf(key,&leaf_page);
   if(rc!=SUCCESS){
@@ -1047,7 +1094,7 @@ RC BplusTreeHandler::search_key(const char *pkey,RID *rid) {
 
   leaf = get_index_node(pdata);
   for(i=0;i<leaf->key_num;i++){
-    if(CompareKey(key,leaf->keys+(i*file_header_.key_length),file_header_.attr_type, file_header_.attr_length)==0){
+    if(CompareKey(key,leaf->keys+(i*file_header_.key_length),file_header_.attr_type, file_header_.attr_length, file_header_.file_num)==0){
       memcpy(rid,leaf->rids+i,sizeof(RID));
       free(key);
       return SUCCESS;
@@ -1077,7 +1124,7 @@ RC BplusTreeHandler::delete_entry_from_node(PageNum node_page,const char *pkey) 
   node = get_index_node(pdata);
 
   for(delete_index=0;delete_index<node->key_num;delete_index++){
-    tmp=CmpKey(file_header_.attr_type, file_header_.attr_length, pkey, node->keys+delete_index*file_header_.key_length);
+    tmp=CmpKey(file_header_.attr_type, file_header_.attr_length, pkey, node->keys+delete_index*file_header_.key_length, file_header_.file_num, file_header_.total_attr_length);
     if(tmp==0)
       break;
   }
@@ -1603,8 +1650,8 @@ RC BplusTreeHandler::delete_entry(const char *data, const RID *rid) {
     LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
-  memcpy(pkey,data,file_header_.attr_length);
-  memcpy(pkey + file_header_.attr_length, rid ,sizeof(*rid));
+  memcpy(pkey,data,file_header_.total_attr_length);
+  memcpy(pkey + file_header_.total_attr_length, rid ,sizeof(*rid));
 
   rc=find_leaf(pkey,&leaf_page);
   if(rc!=SUCCESS){
@@ -1714,10 +1761,10 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
     return RC::NOMEM;
   }
   if (key != nullptr) {
-    memcpy(pkey, key, file_header_.attr_length);
+    memcpy(pkey, key, file_header_.total_attr_length);
   }
   // memcpy(pkey, key, file_header_.attr_length);
-  memcpy(pkey + file_header_.attr_length, &rid, sizeof(RID));
+  memcpy(pkey + file_header_.total_attr_length, &rid, sizeof(RID));
 
   rc = find_leaf(pkey, &leaf_page);
   if(rc != SUCCESS){
@@ -1771,7 +1818,7 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
       //   }
       //   continue;
       // }
-      tmp=CompareKey(node->keys+i*file_header_.key_length,key,file_header_.attr_type,file_header_.attr_length);
+      tmp=CompareKey(node->keys+i*file_header_.key_length,key,file_header_.attr_type,file_header_.attr_length, file_header_.file_num);
       if(compop == EQUAL_TO ||compop == GREAT_EQUAL){
         if(tmp>=0){
           rc = disk_buffer_pool_->get_page_num(&page_handle, page_num);
@@ -1871,12 +1918,12 @@ RC BplusTreeScanner::open(CompOp comp_op,const char *value) {
 
   char *value_copy = nullptr;
   if (value != nullptr) {
-    value_copy = (char *)malloc(index_handler_.file_header_.attr_length);
+    value_copy = (char *)malloc(index_handler_.file_header_.total_attr_length);
     if(value_copy == nullptr){
-      LOG_ERROR("Failed to alloc memory for value. size=%d", index_handler_.file_header_.attr_length);
+      LOG_ERROR("Failed to alloc memory for value. size=%d", index_handler_.file_header_.total_attr_length);
       return RC::NOMEM;
     }
-    memcpy(value_copy, value, index_handler_.file_header_.attr_length);
+    memcpy(value_copy, value, index_handler_.file_header_.total_attr_length);
   }
   value_ = value_copy; // free value_
   rc = index_handler_.find_first_index_satisfied(comp_op, value, &next_page_num_, &index_in_node_);
@@ -2006,374 +2053,433 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
     return true;
   }
 
-  AttrType  attr_type = index_handler_.file_header_.attr_type;
-  switch(attr_type){
+  AttrType  *attr_type = index_handler_.file_header_.attr_type;
+  int * attr_length = index_handler_.file_header_.attr_length;
+  int file_num = index_handler_.file_header_.file_num;
+  std::string pdata_str = pkey;
+  std::string pkey_str = value_;
+  int len = 0;
+  bool flag=false;
+  for(int i= 0; i < file_num; i++) {
+    AttrType my_attr_type = attr_type[i];
+    int my_attr_length = attr_length[i];
+    std::string temp1 = pdata_str.substr(len,my_attr_length);
+    std::string temp2 = pkey_str.substr(len,my_attr_length);
+    const char *key = temp1.c_str();
+    const char *value = temp2.c_str();
+
+    switch(my_attr_type){
     case INTS:
-      i1=*(int *)pkey;
-      i2=*(int *)value_;
+      i1=*(int *)key;
+      i2=*(int *)value;
       break;
     case INTS_NULLABLE:
-      i1=*(int *)pkey;
-      is_null1 = *(int *)(pkey+4);
-      if (value_==nullptr) {
+      i1=*(int *)key;
+      is_null1 = *(int *)(key+4);
+      if (value==nullptr) {
         i2=0;
         is_null2 = 1;
       } else {
-        i2=*(int *)value_;
-        is_null2 = *(int *)(value_+4);
+        i2=*(int *)value;
+        is_null2 = *(int *)(value+4);
       }
       break;
     case FLOATS:
-      f1=*(float *)pkey;
-      f2=*(float *)value_;
+      f1=*(float *)key;
+      f2=*(float *)value;
       break;
     case FLOATS_NULLABLE:
-      f1=*(float *)pkey;
+      f1=*(float *)key;
       // f2=*(float *)value_;
-      is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
+      is_null1 = *(int *)(key+my_attr_length-4);
       // is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
-      if (value_==nullptr) {
+      if (value==nullptr) {
         f2=0;
         is_null2 = 1;
       } else {
-        f2=*(float *)value_;
-        is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
+        f2=*(float *)value;
+        is_null2 = *(int *)(value+my_attr_length-4);
       }
       break;
     case CHARS:
-      s1=pkey;
-      s2=value_;
+      s1=key;
+      s2=value;
       break;
     case CHARS_NULLABLE:
-      s1=pkey;
+      s1=key;
       // s2=value_;
-      is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
+      is_null1 = *(int *)(key+my_attr_length-4);
       // is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
-      if (value_==nullptr) {
+      if (value==nullptr) {
         s2=0;
         is_null2 = 1;
       } else {
-        s2=value_;
-        is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
+        s2=value;
+        is_null2 = *(int *)(value+my_attr_length-4);
       }
       break;
     case DATES:
-      i1=*(int *)pkey;
-      i2=*(int *)value_;
+      i1=*(int *)key;
+      i2=*(int *)value;
       break;
     case DATES_NULLABLE:
-      i1=*(int *)pkey;
+      i1=*(int *)key;
       // i2=*(int *)value_;
-      is_null1 = *(int *)(pkey+index_handler_.file_header_.attr_length-4);
+      is_null1 = *(int *)(key+my_attr_length-4);
       // is_null2 = *(int *)value_+index_handler_.file_header_.attr_length-4;
-      if (value_==nullptr) {
+      if (value==nullptr) {
         i2=0;
         is_null2 = 1;
       } else {
-        i2=*(int *)value_;
-        is_null2 = *(int *)(value_+index_handler_.file_header_.attr_length-4);
+        i2=*(int *)value;
+        is_null2 = *(int *)(value+my_attr_length-4);
       }
       break;
     default:
-      LOG_PANIC("Unknown attr type: %d", attr_type);
-  }
+      LOG_PANIC("Unknown attr type: %d", my_attr_type);
+    }
 
-  bool flag=false;
-
-  int attr_length = index_handler_.file_header_.attr_length;
-  switch(comp_op_){
-    case EQUAL_TO:
-      switch(attr_type){
-        case INTS:
-          flag=(i1==i2);
-          break;
-        case INTS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+    bool equal;
+    switch(comp_op_){
+      case EQUAL_TO:
+        switch(my_attr_type){
+          case INTS:
+            flag=(i1==i2);
             break;
-          }
-          flag=(i1==i2);
+          case INTS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1==i2);
           break;
-        case FLOATS:
-          flag= 0 == float_compare(f1, f2);
-          break;
-        case FLOATS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+          case FLOATS:
+            flag= 0 == float_compare(f1, f2);
             break;
-          }
-          flag= 0 == float_compare(f1, f2);
-          break;
-        case CHARS:
-          flag=(strncmp(s1,s2,attr_length)==0);
-          break;
-        case CHARS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+          case FLOATS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag= 0 == float_compare(f1, f2);
             break;
-          }
-          flag=(strncmp(s1,s2,attr_length)==0);
-          break;
-        case DATES:
-          flag=(i1==i2);
-          break;
-        case DATES_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+          case CHARS:
+            flag=(strncmp(s1,s2,my_attr_length)==0);
             break;
-          }
-          flag=(i1==i2);
-          break;
-        default:
-          LOG_PANIC("Unknown attr type: %d", attr_type);
-      }
-      break;
-    case LESS_THAN:
-      switch(attr_type){
-        case INTS:
-          flag=(i1<i2);
-          break;
-        case INTS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+          case CHARS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(strncmp(s1,s2,my_attr_length)==0);
             break;
-          }
-          flag=(i1<i2);
-          break;
-        case FLOATS:
-          flag=(f1<f2);
-          break;
-        case FLOATS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+          case DATES:
+            flag=(i1==i2);
             break;
-          }
-          flag=(f1<f2);
-          break;
-        case CHARS:
-          flag=(strncmp(s1,s2,attr_length)<0);
-          break;
-        case CHARS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
+          case DATES_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1==i2);
             break;
-          }
-          flag=(strncmp(s1,s2,attr_length)<0);
-          break;
-        case DATES:
-          flag=(i1<i2);
-          break;
-        case DATES_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1<i2);
-          break;
-        default:
-          LOG_PANIC("Unknown attr type: %d", attr_type);
-      }
-      break;
-    case GREAT_THAN:
-      switch(attr_type){
-        case INTS:
-          flag=(i1>i2);
-          break;
-        case FLOATS:
-          flag=(f1>f2);
-          break;
-        case CHARS:
-          flag=(strncmp(s1,s2,attr_length)>0);
-          break;
-        case DATES:
-          flag=(i1>i2);
-          break;
-        case INTS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1>i2);
-          break;
-        case FLOATS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(f1>f2);
-          break;
-        case CHARS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(strncmp(s1,s2,attr_length)>0);
-          break;
-        case DATES_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1>i2);
-          break;
-        default:
-          LOG_PANIC("Unknown attr type: %d", attr_type);
-      }
-      break;
-    case LESS_EQUAL:
-      switch(attr_type){
-        case INTS:
-          flag=(i1<=i2);
-          break;
-        case FLOATS:
-          flag=(f1<=f2);
-          break;
-        case CHARS:
-          flag=(strncmp(s1,s2,attr_length)<=0);
-          break;
-        case DATES:
-          flag=(i1<=i2);
-          break;
-        case INTS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1<=i2);
-          break;
-        case FLOATS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(f1<=f2);
-          break;
-        case CHARS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(strncmp(s1,s2,attr_length)<=0);
-          break;
-        case DATES_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1<=i2);
-          break;
-        default:
-          LOG_PANIC("Unknown attr type: %d", attr_type);
-      }
-      break;
-    case GREAT_EQUAL:
-      switch(attr_type){
-        case INTS:
-          flag=(i1>=i2);
-          break;
-        case FLOATS:
-          flag=(f1>=f2);
-          break;
-        case CHARS:
-          flag=(strncmp(s1,s2,attr_length)>=0);
-          break;
-        case DATES:
-          flag=(i1>=i2);
-          break;
-        case INTS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1>=i2);
-          break;
-        case FLOATS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(f1>=f2);
-          break;
-        case CHARS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(strncmp(s1,s2,attr_length)>=0);
-          break;
-        case DATES_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1>=i2);
-          break;
-        default:
-          LOG_PANIC("Unknown attr type: %d", attr_type);
-      }
-      break;
-    case NOT_EQUAL:
-      switch(attr_type){
-        case INTS:
-          flag=(i1!=i2);
-          break;
-        case FLOATS:
-          flag= 0 != float_compare(f1, f2);
-          break;
-        case CHARS:
-          flag=(strncmp(s1,s2,attr_length)!=0);
-          break;
-        case DATES:
-          flag=(i1!=i2);
-          break;
-        case INTS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1!=i2);
-          break;
-        case FLOATS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag= 0 != float_compare(f1, f2);
-          break;
-        case CHARS_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(strncmp(s1,s2,attr_length)!=0);
-          break;
-        case DATES_NULLABLE:
-          if (is_null1 == 1 || is_null2 == 1) {
-            flag = false;
-            break;
-          }
-          flag=(i1!=i2);
-          break;
-        default:
-          LOG_PANIC("Unknown attr type: %d", attr_type);
-      }
-      break;
-    case IS:
-      if (is_null1 == 1 && is_null2 == 1) {
-        flag = true;
+          default:
+            LOG_PANIC("Unknown attr type: %d", attr_type);
+        }
+        if(flag == false)
+          return flag;
         break;
-      }
-      flag = false;
-      break;
-    case IS_NOT:
-      if (is_null1 == 0 && is_null2 == 1) {
-        flag = true;
+      case LESS_THAN:
+        switch(my_attr_type){
+          case INTS:
+            flag=(i1<i2);
+            equal=(i1==i2);
+            break;
+          case INTS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1<i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS:
+            flag=(f1<f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case FLOATS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(f1<f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS:
+            flag=(strncmp(s1,s2,my_attr_length)<0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case CHARS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(strncmp(s1,s2,my_attr_length)<0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES:
+            flag=(i1<i2);
+            equal=(i1==i2);
+            break;
+          case DATES_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1<i2);
+            equal=(i1==i2);
+            break;
+          default:
+            LOG_PANIC("Unknown attr type: %d", attr_type);
+        }
+        if(equal == false)
+          return flag;
         break;
-      }
-      flag = false;
-      break;
-    default:
-      LOG_PANIC("Unknown comp op: %d", comp_op_);
+      case GREAT_THAN:
+        switch(my_attr_type){
+          case INTS:
+            flag=(i1>i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS:
+            flag=(f1>f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS:
+            flag=(strncmp(s1,s2,my_attr_length)>0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES:
+            flag=(i1>i2);
+            equal=(i1==i2);
+            break;
+          case INTS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1>i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(f1>f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(strncmp(s1,s2,my_attr_length)>0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1>i2);
+            equal=(i1==i2);
+            break;
+          default:
+            LOG_PANIC("Unknown attr type: %d", attr_type);
+        }
+        if(equal == false)
+          return flag;
+        break;
+      case LESS_EQUAL:
+        switch(my_attr_type){
+          case INTS:
+            flag=(i1<=i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS:
+            flag=(f1<=f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS:
+            flag=(strncmp(s1,s2,my_attr_length)<=0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES:
+            flag=(i1<=i2);
+            equal=(i1==i2);
+            break;
+          case INTS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1<=i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(f1<=f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(strncmp(s1,s2,my_attr_length)<=0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1<=i2);
+            equal=(i1==i2);
+            break;
+          default:
+            LOG_PANIC("Unknown attr type: %d", attr_type);
+        }
+        if(equal == false)
+          return flag;
+        break;
+      case GREAT_EQUAL:
+        switch(my_attr_type){
+          case INTS:
+            flag=(i1>=i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS:
+            flag=(f1>=f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS:
+            flag=(strncmp(s1,s2,my_attr_length)>=0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES:
+            flag=(i1>=i2);
+            equal=(i1==i2);
+            break;
+          case INTS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1>=i2);
+            equal=(i1==i2);
+            break;
+          case FLOATS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(f1>=f2);
+            equal= 0 == float_compare(f1, f2);
+            break;
+          case CHARS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(strncmp(s1,s2,my_attr_length)>=0);
+            equal=(strncmp(s1,s2,my_attr_length)==0);
+            break;
+          case DATES_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1>=i2);
+            equal=(i1==i2);
+            break;
+          default:
+            LOG_PANIC("Unknown attr type: %d", attr_type);
+        }
+        if(equal == false)
+          return flag;
+        break;
+      case NOT_EQUAL:
+        switch(my_attr_type){
+          case INTS:
+            flag=(i1!=i2);
+            break;
+          case FLOATS:
+            flag= 0 != float_compare(f1, f2);
+            break;
+          case CHARS:
+            flag=(strncmp(s1,s2,my_attr_length)!=0);
+            break;
+          case DATES:
+            flag=(i1!=i2);
+            break;
+          case INTS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1!=i2);
+            break;
+          case FLOATS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag= 0 != float_compare(f1, f2);
+            break;
+          case CHARS_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(strncmp(s1,s2,my_attr_length)!=0);
+            break;
+          case DATES_NULLABLE:
+            if (is_null1 == 1 || is_null2 == 1) {
+              flag = false;
+              break;
+            }
+            flag=(i1!=i2);
+            break;
+          default:
+            LOG_PANIC("Unknown attr type: %d", attr_type);
+        }
+        if(flag == true)
+          return flag;
+        break;
+      case IS:
+        //多个值的is和is-not判断还需要考虑 mjy
+        if (is_null1 == 1 && is_null2 == 1) {
+          flag = true;
+          break;
+        }
+        flag = false;
+        break;
+      case IS_NOT:
+        if (is_null1 == 0 && is_null2 == 1) {
+          flag = true;
+          break;
+        }
+        flag = false;
+        break;
+      default:
+        LOG_PANIC("Unknown comp op: %d", comp_op_);
+    }
+    
   }
   return flag;
 }

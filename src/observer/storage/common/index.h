@@ -51,12 +51,12 @@ public:
   virtual RC sync() = 0;
 
 protected:
-  RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
+  RC init(const IndexMeta &index_meta, const FieldMeta *field_meta[]);
   RC init_unique(const bool unique);
 
 protected:
   IndexMeta   index_meta_;
-  FieldMeta   field_meta_;    /// 当前实现仅考虑一个字段的索引
+  FieldMeta  *field_meta_;    /// 当前实现仅考虑一个字段的索引  mjy 改成多个
   bool        unique_;         /// 是否为唯一索引
 };
 
