@@ -86,6 +86,14 @@ RC DiskBufferPool::open_file(const char *file_name, int *file_id)
   for (i = 0; i < MAX_OPEN_FILE; i++) {
     if (open_list_[i]) {
       if (!strcmp(open_list_[i]->file_name, file_name)) {
+        // 将第i个元素向前移动一位
+        if (i > 0) {
+          BPFileHandle *this_ = open_list_[i];
+          BPFileHandle *pre_ = open_list_[i-1];
+          open_list_[i-1] = this_;
+          open_list_[i] = pre_;
+          i--;
+        }
         *file_id = i;
         LOG_INFO("%s has already been opened.", file_name);
         return RC::SUCCESS;
