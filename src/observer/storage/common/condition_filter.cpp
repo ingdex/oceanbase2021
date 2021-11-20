@@ -298,7 +298,14 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       }
       float left = *(float *)left_value;
       float right = *(float *)right_value;
-      cmp_result = (int)(left - right);
+      float ans = left - right;
+      if(ans < 0)
+        cmp_result = -1;
+      else if(ans > 0)
+        cmp_result = 1;
+      else
+        cmp_result = 0;
+      //cmp_result = (int)(left - right);
     } break;
     case FLOATS_NULLABLE: {
       int is_null = *(int *)(rec.data + left_.attr_offset + left_.attr_length);
