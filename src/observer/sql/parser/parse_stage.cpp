@@ -120,7 +120,7 @@ StageEvent *ParseStage::handle_request(StageEvent *event) {
   }
 
   RC ret = parse(sql.c_str(), result);
-  static int k = 9;
+  static int k = 11;
   static std::ostringstream ss;
   ss << sql.c_str();
   if (result->flag == SCF_SELECT && --k == 0) {
