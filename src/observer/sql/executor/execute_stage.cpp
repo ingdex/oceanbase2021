@@ -1147,6 +1147,61 @@ bool has_no_sub_query(const Selects *selects){
   return true;
 }
 
+bool is_aggregation_schema_(const char *attribute_name, char *&aggregation_filed, char *&field_name) {
+  
+  if (attribute_name == nullptr) {
+    return false;
+  }
+  if (attribute_name[0] == 'M' || attribute_name[0] == 'm') {
+    if ((attribute_name[1] == 'A' || attribute_name[1] == 'a') 
+      && (attribute_name[2] == 'X' || attribute_name[2] == 'x') 
+      && attribute_name[3] == '(') {
+      size_t len = strlen(attribute_name) + 1 - 4;
+      field_name = new char[len];
+      aggregation_filed = new char[4] {'M', 'A', 'X', '\0'};
+      strcpy(field_name, attribute_name+4);
+      field_name[len-2] = '\0';
+      return true;
+    }
+    if ((attribute_name[1] == 'I' || attribute_name[1] == 'i') 
+      && (attribute_name[2] == 'N' || attribute_name[2] == 'n') 
+      && attribute_name[3] == '(') {
+      size_t len = strlen(attribute_name) + 1 - 4;
+      field_name = new char[len];
+      aggregation_filed = new char[4] {'M', 'I', 'N', '\0'};
+      strcpy(field_name, attribute_name+4);
+      field_name[len-2] = '\0';
+      return true;;
+    }
+    return false;
+  } else if ((attribute_name[0] == 'C' || attribute_name[0] == 'c') 
+      && (attribute_name[1] == 'O' || attribute_name[1] == 'o') 
+      && (attribute_name[2] == 'U' || attribute_name[2] == 'u')
+      && (attribute_name[3] == 'N' || attribute_name[3] == 'n') 
+      && (attribute_name[4] == 'T' || attribute_name[4] == 't') 
+      && attribute_name[5] == '(') {
+    size_t len = strlen(attribute_name) + 1 - 6;
+    field_name = new char[len];
+    aggregation_filed = new char[6] {'C', 'O', 'U', 'N', 'T', '\0'};
+    strcpy(field_name, attribute_name+6);
+    field_name[len-2] = '\0';
+    return true;
+  } else if ((attribute_name[0] == 'A' || attribute_name[0] == 'a') 
+      && (attribute_name[1] == 'V' || attribute_name[1] == 'v')
+      && (attribute_name[2] == 'G' || attribute_name[2] == 'g') 
+      && attribute_name[3] == '(') {
+    size_t len = strlen(attribute_name) + 1 - 4;
+    field_name = new char[len];
+    aggregation_filed = new char[4] {'A', 'V', 'G', '\0'};
+    strcpy(field_name, attribute_name+4);
+    field_name[len-2] = '\0';
+    return true;
+  }
+  aggregation_filed = nullptr;
+  field_name = nullptr;
+  return false;
+}
+
 RC select_condition_to_normal_condition(const char *db, Trx *trx, const Condition &select_condition, Condition &re_condition) {
   Selects *selects = select_condition.selects;
   TupleSet re_tuple_set;
@@ -1161,7 +1216,12 @@ RC select_condition_to_normal_condition(const char *db, Trx *trx, const Conditio
     return RC::SUCCESS;
     // re_condition
   } else {
-
+    // char *aggregation_filed, *field_name;
+    // bool flag = is_aggregation_schema_(selects->attributes[0].attribute_name, aggregation_filed, field_name);
+    // if ((!flag && select_condition.comp != IN) ||
+    //     (!flag && select_condition.comp != NOT_IN)) {
+    //   return RC::GENERIC_ERROR;
+    // }
   }
 }
 
@@ -1190,6 +1250,13 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       if (condition.is_select) {
+        char *aggregation_filed, *field_name;
+        // condition.selects
+        bool flag = is_aggregation_schema_(condition.selects->attributes[0].attribute_name, aggregation_filed, field_name);
+        if ((!flag && condition.comp != IN) ||
+            (!flag && condition.comp != NOT_IN)) {
+          return RC::GENERIC_ERROR;
+        }
         Condition normal_condition;
         RC rc = select_condition_to_normal_condition(db, trx, condition, normal_condition);
         if (rc != RC::SUCCESS) {
