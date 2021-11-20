@@ -189,13 +189,15 @@ int CompareKey(const char *pdata, const char *pkey,AttrType *attr_type,int *attr
   std::string pdata_str = pdata;
   std::string pkey_str = pkey;
   int len = 0;
+  size_t offset = 0;
   for(int i= 0; i < file_num; i++) {
     AttrType my_attr_type = attr_type[i];
     int my_attr_length = attr_length[i];
-    std::string temp1 = pdata_str.substr(len,my_attr_length);
-    std::string temp2 = pkey_str.substr(len,my_attr_length);
-    const char *data = temp1.c_str();
-    const char *key = temp2.c_str();
+      // std::string temp1 = pdata_str.substr(len,my_attr_length);
+    // std::string temp2 = pkey_str.substr(len,my_attr_length);
+    const char *data = pdata + offset;
+    const char *key = pkey + offset;
+    offset += my_attr_length;
     len += my_attr_length;
     switch(my_attr_type){
       case INTS: {

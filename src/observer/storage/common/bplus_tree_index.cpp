@@ -69,10 +69,20 @@ RC BplusTreeIndex::close() {
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid) {
   std::string key_str = "";
   int field_num = index_meta_.file_num();
+  const char *keys[field_num];
+  int total_len = 0;
   for(int i =0; i < field_num; i++) {
-    key_str += (record + field_meta_[i].offset());
+    total_len += field_meta_[i].len();
+    keys[i] = record + field_meta_[i].offset();
+    // key_str += (record + field_meta_[i].offset());
   }
-  const char * key = key_str.c_str();
+  char * key = new char[total_len];
+  size_t offset = 0;
+  for (int i=0; i<field_num; i++) {
+    memcpy(key + offset, keys[i], field_meta_[i].len());
+    offset += field_meta_[i].len();
+  }
+  //const char * key = key_str.c_str();
   
   if(unique_) {
     RID * search_rid = new RID[1];
