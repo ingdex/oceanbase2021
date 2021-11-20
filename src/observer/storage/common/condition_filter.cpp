@@ -258,6 +258,51 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         }
         return false;
       }
+      if (tuple_set_ != nullptr) {
+        if (tuple_set_->size() == 0) {
+          return false;
+        }
+        int left = *(int *)left_value;
+        // int right = *(int *)right_value;
+        const TupleValue &tuple_value = tuple_set_->get(0).get(0);
+        AttrType right_type = tuple_value.type();
+        if (right_type == IS_NULL) {
+          switch (comp_op_) {
+            case IN:
+              return false;
+            case NOT_IN:
+              return false;
+            default:
+              return false;
+          }
+        }
+        if (comp_op_ == IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(i);
+            std::string value_str = tuple.get(0).to_string();
+            // float right = std::stof(value_str);
+            // float re = left - right;
+            int re = strcmp(left_value, value_str.c_str());
+            if (re == 0) {
+              return true;
+            }
+          }
+          return false;
+        } else if (comp_op_ == NOT_IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(i);
+            std::string value_str = tuple.get(0).to_string();
+            int re = strcmp(left_value, value_str.c_str());
+            if (re == 0) {
+              return true;
+            }
+          }
+          return true;
+        }
+        std::string value_str = tuple_value.to_string();
+        cmp_result = strcmp(left_value, right_value);
+        break;
+      }
       cmp_result = strcmp(left_value, right_value);
     } break;
     case CHARS_NULLABLE: {  // 字符串都是定长的，直接比较
@@ -268,6 +313,51 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           return true;
         }
         return false;
+      }
+      if (tuple_set_ != nullptr) {
+        if (tuple_set_->size() == 0) {
+          return false;
+        }
+        int left = *(int *)left_value;
+        // int right = *(int *)right_value;
+        const TupleValue &tuple_value = tuple_set_->get(0).get(0);
+        AttrType right_type = tuple_value.type();
+        if (right_type == IS_NULL) {
+          switch (comp_op_) {
+            case IN:
+              return false;
+            case NOT_IN:
+              return false;
+            default:
+              return false;
+          }
+        }
+        if (comp_op_ == IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(i);
+            std::string value_str = tuple.get(0).to_string();
+            // float right = std::stof(value_str);
+            // float re = left - right;
+            int re = strcmp(left_value, value_str.c_str());
+            if (re == 0) {
+              return true;
+            }
+          }
+          return false;
+        } else if (comp_op_ == NOT_IN) {
+          for (int i=0; i<tuple_set_->size(); i++) {
+            const Tuple &tuple = tuple_set_->get(i);
+            std::string value_str = tuple.get(0).to_string();
+            int re = strcmp(left_value, value_str.c_str());
+            if (re == 0) {
+              return true;
+            }
+          }
+          return true;
+        }
+        std::string value_str = tuple_value.to_string();
+        cmp_result = strcmp(left_value, right_value);
+        break;
       }
       if (left_value == nullptr || right_value == nullptr) {
         if (comp_op_ == IS_NOT) {
@@ -316,6 +406,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       // 没有考虑大小端问题
       // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
       if (tuple_set_ != nullptr) {
+        if (tuple_set_->size() == 0) {
+          return false;
+        }
         int left = *(int *)left_value;
         // int right = *(int *)right_value;
         const TupleValue &tuple_value = tuple_set_->get(0).get(0);
@@ -387,6 +480,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         return false;
       }
       if (tuple_set_ != nullptr) {
+        if (tuple_set_->size() == 0) {
+          return false;
+        }
         int left = *(int *)left_value;
         // int right = *(int *)right_value;
         const TupleValue &tuple_value = tuple_set_->get(0).get(0);
@@ -449,6 +545,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     } break;
     case FLOATS: {
       if (tuple_set_ != nullptr) {
+        if (tuple_set_->size() == 0) {
+          return false;
+        }
         float left = *(float *)left_value;
         // int right = *(int *)right_value;
         const TupleValue &tuple_value = tuple_set_->get(0).get(0);
@@ -518,6 +617,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     } break;
     case FLOATS_NULLABLE: {
       if (tuple_set_ != nullptr) {
+        if (tuple_set_->size() == 0) {
+          return false;
+        }
         float left = *(float *)left_value;
         // int right = *(int *)right_value;
         const TupleValue &tuple_value = tuple_set_->get(0).get(0);
