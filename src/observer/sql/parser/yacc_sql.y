@@ -1164,11 +1164,11 @@ condition:
 			if (CONTEXT->comp == LESS_THAN) {
 				CONTEXT->comp = GREAT_THAN;
 			} else if (CONTEXT->comp == GREAT_THAN) {
-				CONTEXT->comp == LESS_THAN;
+				CONTEXT->comp = LESS_THAN;
 			} else if (CONTEXT->comp == LESS_EQUAL) {
-				CONTEXT->comp == GREAT_EQUAL;
+				CONTEXT->comp = GREAT_EQUAL;
 			} else if (CONTEXT->comp == GREAT_EQUAL) {
-				CONTEXT->comp == LESS_EQUAL;
+				CONTEXT->comp = LESS_EQUAL;
 			}
 			select_condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, right_select);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
@@ -1184,6 +1184,15 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
+			if (CONTEXT->comp == LESS_THAN) {
+				CONTEXT->comp = GREAT_THAN;
+			} else if (CONTEXT->comp == GREAT_THAN) {
+				CONTEXT->comp = LESS_THAN;
+			} else if (CONTEXT->comp == LESS_EQUAL) {
+				CONTEXT->comp = GREAT_EQUAL;
+			} else if (CONTEXT->comp == GREAT_EQUAL) {
+				CONTEXT->comp = LESS_EQUAL;
+			}
 			select_condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, right_select);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 
