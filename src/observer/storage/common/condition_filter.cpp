@@ -260,6 +260,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       }
       if (tuple_set_ != nullptr) {
         if (tuple_set_->size() == 0) {
+          if (comp_op_ == NOT_IN) {
+            return true;
+          }
           return false;
         }
         int left = *(int *)left_value;
@@ -316,6 +319,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       }
       if (tuple_set_ != nullptr) {
         if (tuple_set_->size() == 0) {
+          if (comp_op_ == NOT_IN) {
+            return true;
+          }
           return false;
         }
         int left = *(int *)left_value;
@@ -407,6 +413,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
       if (tuple_set_ != nullptr) {
         if (tuple_set_->size() == 0) {
+          if (comp_op_ == NOT_IN) {
+            return true;
+          }
           return false;
         }
         int left = *(int *)left_value;
@@ -481,6 +490,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       }
       if (tuple_set_ != nullptr) {
         if (tuple_set_->size() == 0) {
+          if (comp_op_ == NOT_IN) {
+            return true;
+          }
           return false;
         }
         int left = *(int *)left_value;
@@ -546,6 +558,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     case FLOATS: {
       if (tuple_set_ != nullptr) {
         if (tuple_set_->size() == 0) {
+          if (comp_op_ == NOT_IN) {
+            return true;
+          }
           return false;
         }
         float left = *(float *)left_value;
@@ -618,6 +633,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     case FLOATS_NULLABLE: {
       if (tuple_set_ != nullptr) {
         if (tuple_set_->size() == 0) {
+          if (comp_op_ == NOT_IN) {
+            return true;
+          }
           return false;
         }
         float left = *(float *)left_value;
