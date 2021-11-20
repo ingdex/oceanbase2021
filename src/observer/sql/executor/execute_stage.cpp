@@ -1253,7 +1253,7 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         char *aggregation_filed, *field_name;
         // condition.selects
         bool flag = is_aggregation_schema_(condition.selects->attributes[0].attribute_name, aggregation_filed, field_name);
-        if ((!flag && condition.comp != IN) ||
+        if ((!flag && condition.comp != IN) &&
             (!flag && condition.comp != NOT_IN)) {
           return RC::GENERIC_ERROR;
         }
