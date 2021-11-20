@@ -121,6 +121,10 @@ void attr_list_append_attribute(RelAttr *attr_list, int list_length, RelAttr *at
   // (*list_length)++;
 }
 
+void condition_list_append_condition(Condition *condition_list, int list_length, Condition *condition) {
+  condition_list[list_length] = *condition;
+}
+
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
   attr_info->name = strdup(name);
   attr_info->type = type;

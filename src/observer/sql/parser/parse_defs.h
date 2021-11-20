@@ -224,6 +224,7 @@ void condition_destroy(Condition *condition);
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
 void attr_info_destroy(AttrInfo *attr_info);
 void attr_list_append_attribute(RelAttr *attr_list, int list_length, RelAttr *attr);
+void condition_list_append_condition(Condition *condition_list, int list_length, Condition *condition);
 void selects_init_(Selects *selects);
 void selects_init(Selects *selects, ...);
 void selects_move__(Selects *des, Selects *src);
