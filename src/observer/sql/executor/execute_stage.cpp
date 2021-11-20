@@ -1221,14 +1221,14 @@ RC select_condition_to_normal_condition(const char *db, Trx *trx, const Conditio
   } else {
     char *aggregation_filed, *field_name;
     bool flag = is_aggregation_schema_(selects->attributes[0].attribute_name, aggregation_filed, field_name);
-    if ((!flag && select_condition.comp != IN) ||
+    if ((!flag && select_condition.comp != IN) &&
         (!flag && select_condition.comp != NOT_IN)) {
       return RC::GENERIC_ERROR;
     }
     for (int i=0; i<selects->condition_num; i++) {
-    if (selects->conditions[i].is_select) {
+      if (selects->conditions[i].is_select) {
         Condition normal_condition;
-        RC rc = select_condition_to_normal_condition(db, trx, select_condition, normal_condition);
+        RC rc = select_condition_to_normal_condition(db, trx, selects->conditions[i], normal_condition);
         
         if (rc != RC::SUCCESS) {
           return RC::GENERIC_ERROR;
@@ -1236,7 +1236,16 @@ RC select_condition_to_normal_condition(const char *db, Trx *trx, const Conditio
         selects->conditions[i] = normal_condition;
       }
     }
-    
+    if (selects->attr_num != 1) {
+      return RC::GENERIC_ERROR;
+    }
+    rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    re_condition = select_condition;
+    re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+    return RC::SUCCESS;
   }
 }
 
