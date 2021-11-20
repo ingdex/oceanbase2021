@@ -203,7 +203,7 @@ const IndexMeta * TableMeta::find_index_by_fields(char * const field[], const in
           break;
         }
       }
-      if(flag = true)
+      if(flag == true)
         return &index;
     }
   }
