@@ -1141,10 +1141,10 @@ bool has_no_sub_query(const Selects *selects){
   }
   for (int i=0; i<selects->condition_num; i++) {
     if (selects->conditions[i].is_select) {
-      return true;
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 RC select_condition_to_normal_condition(const char *db, Trx *trx, const Condition &select_condition, Condition &re_condition) {
