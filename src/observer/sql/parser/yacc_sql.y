@@ -1136,15 +1136,6 @@ condition:
 			Condition condition;
 			select_condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, right_select);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name = NULL;
-			// $$->left_attr.attribute_name= $1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
 			// printf("where sub end\n");
 
 		}
@@ -1159,16 +1150,33 @@ condition:
 			Condition condition;
 			select_condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, right_select);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name = NULL;
-			// $$->left_attr.attribute_name= $1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
+
+		}
+	| subselect comOp ID
+		{
+			// printf("where sub\n");
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, NULL, $3);
+
+			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
+
+			Condition condition;
+			select_condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, right_select);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			// printf("where sub end\n");
+
+		}
+	| subselect comOp ID DOT ID 
+		{
+			// printf("where sub\n");
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, $3, $5);
+
+			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
+
+			Condition condition;
+			select_condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, right_select);
+			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 
 		}
 	;
