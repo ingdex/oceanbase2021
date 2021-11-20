@@ -73,6 +73,8 @@ RC Trx::delete_record(Table *table, Record *record) {
   Operation *old_oper = find_operation(table, record->rid);
   if (old_oper != nullptr) {
     // 可能有bug，如果上一次操作为update，这里就会报错
+    // delete_operation(table, record->rid);
+    // return RC::SUCCESS;
     if (old_oper->type() == Operation::Type::INSERT) {
       delete_operation(table, record->rid);
       return RC::SUCCESS;
@@ -131,6 +133,12 @@ void Trx::delete_operation(Table *table, const RID &rid) {
 
   Operation tmp(Operation::Type::UNDEFINED, rid);
   table_operations_iter->second.erase(tmp);
+  Operation tmp1(Operation::Type::DELETE, rid);
+  table_operations_iter->second.erase(tmp1);
+  Operation tmp2(Operation::Type::INSERT, rid);
+  table_operations_iter->second.erase(tmp2);
+  Operation tmp3(Operation::Type::UPDATE, rid);
+  table_operations_iter->second.erase(tmp3);
 }
 
 RC Trx::commit() {
