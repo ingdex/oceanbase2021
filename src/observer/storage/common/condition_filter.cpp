@@ -39,7 +39,7 @@ DefaultConditionFilter::DefaultConditionFilter()
 DefaultConditionFilter::~DefaultConditionFilter()
 {}
 
-RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op)
+RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op, TupleSet *tuple_set)
 {
   if (attr_type < CHARS || attr_type > NOT_NULL) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
@@ -55,6 +55,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
   right_ = right;
   attr_type_ = attr_type;
   comp_op_ = comp_op;
+  tuple_set_ = tuple_set;
   return RC::SUCCESS;
 }
 
@@ -80,11 +81,12 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     left.value = nullptr;
 
     type_left = field_left->type();
+    left.type = type_left;
   } else {
     left.is_attr = false;
     left.value = condition.left_value.data;  // 校验type 或者转换类型
     type_left = condition.left_value.type;
-
+    left.type = type_left;
     left.attr_length = 0;
     left.attr_offset = 0;
   }
@@ -99,13 +101,13 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     right.attr_length = field_right->len();
     right.attr_offset = field_right->offset();
     type_right = field_right->type();
-
+    right.type = type_right;
     right.value = nullptr;
-  } else {
+  } else if (condition.is_select != 1){
     right.is_attr = false;
     right.value = condition.right_value.data;
     type_right = condition.right_value.type;
-
+    right.type = type_right;
     right.attr_length = 0;
     right.attr_offset = 0;
   }
@@ -127,6 +129,60 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   //     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   //   }
   // }
+  if (condition.is_select) {
+    TupleSet *tuple_set = (TupleSet *)condition.tuple_set_;
+    if (tuple_set->size() == 0) {
+      return init(left, right, type_left, condition.comp, (TupleSet *)condition.tuple_set_);
+    }
+    type_right = tuple_set->get(0).get(0).type();
+    if (type_left == CHARS) {
+      if (type_right != CHARS && type_right != IS_NULL) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else if (type_left == CHARS_NULLABLE) {
+      if (type_right != CHARS && type_right != IS_NULL && type_right != NOT_NULL) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else if (type_left == INTS) {
+      if (type_right != INTS && type_right != IS_NULL && type_right != FLOATS) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else if (type_left == INTS_NULLABLE) {
+      if (type_right != INTS && type_right != IS_NULL && type_right != NOT_NULL && type_right != FLOATS) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else if (type_left == FLOATS) {
+      if (type_right != FLOATS && type_right != IS_NULL && type_right != INTS) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else if (type_left == FLOATS_NULLABLE) {
+      if (type_right != INTS && type_right != IS_NULL && type_right != NOT_NULL && type_right != INTS) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else if (type_left == DATES) {
+      if (type_right != CHARS && type_right != IS_NULL) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      MyDate date((char *)right.value);
+      if (date.toInt() == -1) {
+        return RC::GENERIC_ERROR;
+      }
+    } else if (type_left == DATES_NULLABLE) {
+      if (type_right != CHARS && type_right != IS_NULL && type_right != NOT_NULL) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      if (type_right == CHARS) {
+        MyDate date((char *)right.value);
+        if (date.toInt() == -1) {
+          return RC::GENERIC_ERROR;
+        }
+      }
+    }
+    return init(left, right, type_left, condition.comp, (TupleSet *)condition.tuple_set_);
+  }
+
+
+
   if (type_left == CHARS) {
     if (type_right != CHARS && type_right != IS_NULL) {
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -172,7 +228,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   }
 
 
-  return init(left, right, type_left, condition.comp);
+  return init(left, right, type_left, condition.comp, nullptr);
 }
 
 bool DefaultConditionFilter::filter(const Record &rec) const
@@ -259,11 +315,39 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     case INTS: {
       // 没有考虑大小端问题
       // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
+      
       if (right_value == nullptr) {
         if (comp_op_ == IS_NOT) {
           return true;
         }
         return false;
+      }
+      if (tuple_set_ != nullptr) {
+        int left = *(int *)left_value;
+        // int right = *(int *)right_value;
+        const TupleValue &tuple_value = tuple_set_->get(0).get(0);
+        AttrType right_type = tuple_value.type();
+        if (right_type == IS_NULL) {
+          switch (comp_op_) {
+            case IN:
+              return false;
+            case NOT_IN:
+              return false;
+            default:
+              return false;
+          }
+        }
+        std::string value_str = tuple_value.to_string();
+        float right = std::stof(value_str);
+        float re = left - right;
+        if (re > 0) {
+          cmp_result = 1;
+        } else if (re == 0) {
+          cmp_result = 0;
+        } else {
+          cmp_result = -1;
+        }
+        break;
       }
       int left = *(int *)left_value;
       int right = *(int *)right_value;
@@ -285,6 +369,33 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         }
         return false;
       }
+      if (tuple_set_ != nullptr) {
+        int left = *(int *)left_value;
+        // int right = *(int *)right_value;
+        const TupleValue &tuple_value = tuple_set_->get(0).get(0);
+        AttrType right_type = tuple_value.type();
+        if (right_type == IS_NULL) {
+          switch (comp_op_) {
+            case IN:
+              return false;
+            case NOT_IN:
+              return false;
+            default:
+              return false;
+          }
+        }
+        std::string value_str = tuple_value.to_string();
+        float right = std::stof(value_str);
+        float re = left - right;
+        if (re > 0) {
+          cmp_result = 1;
+        } else if (re == 0) {
+          cmp_result = 0;
+        } else {
+          cmp_result = -1;
+        }
+        break;
+      }
       int left = *(int *)left_value;
       int right = *(int *)right_value;
       cmp_result = left - right;
@@ -295,6 +406,33 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           return true;
         }
         return false;
+      }
+      if (tuple_set_ != nullptr) {
+        float left = *(float *)left_value;
+        // int right = *(int *)right_value;
+        const TupleValue &tuple_value = tuple_set_->get(0).get(0);
+        AttrType right_type = tuple_value.type();
+        if (right_type == IS_NULL) {
+          switch (comp_op_) {
+            case IN:
+              return false;
+            case NOT_IN:
+              return false;
+            default:
+              return false;
+          }
+        }
+        std::string value_str = tuple_value.to_string();
+        float right = std::stof(value_str);
+        float re = left - right;
+        if (re > 0) {
+          cmp_result = 1;
+        } else if (re == 0) {
+          cmp_result = 0;
+        } else {
+          cmp_result = -1;
+        }
+        break;
       }
       float left = *(float *)left_value;
       float right = *(float *)right_value;
@@ -313,6 +451,33 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           return true;
         }
         return false;
+      }
+      if (tuple_set_ != nullptr) {
+        float left = *(float *)left_value;
+        // int right = *(int *)right_value;
+        const TupleValue &tuple_value = tuple_set_->get(0).get(0);
+        AttrType right_type = tuple_value.type();
+        if (right_type == IS_NULL) {
+          switch (comp_op_) {
+            case IN:
+              return false;
+            case NOT_IN:
+              return false;
+            default:
+              return false;
+          }
+        }
+        std::string value_str = tuple_value.to_string();
+        float right = std::stof(value_str);
+        float re = left - right;
+        if (re > 0) {
+          cmp_result = 1;
+        } else if (re == 0) {
+          cmp_result = 0;
+        } else {
+          cmp_result = -1;
+        }
+        break;
       }
       float left = *(float *)left_value;
       float right = *(float *)right_value;

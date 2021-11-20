@@ -29,6 +29,7 @@ void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const
     relation_attr->relation_name = nullptr;
   }
   relation_attr->attribute_name = strdup(attribute_name);
+  // printf("%s %s\n",relation_attr->relation_name, relation_attr->attribute_name);
 }
 
 void relation_attr_destroy(RelAttr *relation_attr) {
@@ -80,7 +81,28 @@ void condition_init(Condition *condition, CompOp comp,
   } else {
     condition->right_value = *right_value;
   }
+  condition->is_select = false;
+    condition->selects = nullptr;
+  condition->tuple_set_ = nullptr;
 }
+
+void select_condition_init(Condition *condition, CompOp comp, 
+                    int left_is_attr, RelAttr *left_attr, Value *left_value,
+                    Selects *right_select) {
+  condition->comp = comp;
+  condition->left_is_attr = left_is_attr;
+  if (left_is_attr) {
+    condition->left_attr = *left_attr;
+  } else {
+    condition->left_value = *left_value;
+  }
+  
+    condition->right_is_attr = 0;
+    condition->is_select = true;
+    condition->selects = right_select;
+  condition->tuple_set_ = nullptr;
+}
+
 void condition_destroy(Condition *condition) {
   if (condition->left_is_attr) {
     relation_attr_destroy(&condition->left_attr);
@@ -94,6 +116,11 @@ void condition_destroy(Condition *condition) {
   }
 }
 
+void attr_list_append_attribute(RelAttr *attr_list, int list_length, RelAttr *attr) {
+  attr_list[list_length] = *attr;
+  // (*list_length)++;
+}
+
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
   attr_info->name = strdup(name);
   attr_info->type = type;
@@ -104,10 +131,49 @@ void attr_info_destroy(AttrInfo *attr_info) {
   attr_info->name = nullptr;
 }
 
+void selects_init_(Selects *selects){
+  selects->attr_num = 0;
+  selects->relation_num = 0;
+  selects->condition_num = 0;
+  for (int i=0; i<MAX_NUM; i++) {
+    selects->relations[i] = nullptr;
+  }
+}
+
+void selects_move__(Selects *des, Selects *src) {
+  des->attr_num = src->attr_num;
+  des->relation_num = src->relation_num;
+  des->condition_num = src->condition_num;
+  for (int i=0; i<des->attr_num; i++) {
+    des->attributes[i] = src->attributes[i];
+  }
+  for (int i=0; i<des->relation_num; i++) {
+    des->relations[i] = src->relations[i];
+  }
+  for (int i=0; i<des->condition_num; i++) {
+    des->conditions[i] = src->conditions[i];
+  }
+  src->attr_num = 0;
+  src->relation_num = 0;
+  src->condition_num = 0;
+}
+
 void selects_init(Selects *selects, ...);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr) {
   selects->attributes[selects->attr_num++] = *rel_attr;
 }
+
+void selects_append_attributes(Selects *selects, RelAttr *rel_attr_list, int attr_list_length) {
+  // printf("attr_list_length: %d\n", attr_list_length);
+  // for (int i=0; i<attr_list_length; i++) {
+  //   printf("%s %s\n", rel_attr_list->relation_name, rel_attr_list->attribute_name);
+  // }
+
+  for (int i=attr_list_length-1; i>=0; i--) {
+    selects->attributes[selects->attr_num++] = rel_attr_list[i];
+  }
+}
+
 void selects_append_relation(Selects *selects, const char *relation_name) {
   selects->relations[selects->relation_num++] = strdup(relation_name);
 }
@@ -137,6 +203,8 @@ void selects_destroy(Selects *selects) {
   }
   selects->condition_num = 0;
 }
+
+
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num, size_t data_num) {
   assert(value_num <= sizeof(inserts->values)/sizeof(inserts->values[0]));

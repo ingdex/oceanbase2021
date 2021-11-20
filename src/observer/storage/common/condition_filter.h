@@ -30,6 +30,7 @@ struct ConDesc {
   void * value;       // 如果是值类型，这里记录值的数据
   char * attr_name;
   char * table_name;
+  AttrType type;
   ConDesc()
   {
   };
@@ -57,7 +58,7 @@ public:
   DefaultConditionFilter();
   virtual ~DefaultConditionFilter();
 
-  RC init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op);
+  RC init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op, TupleSet *tuple_set);
   RC init(Table &table, const Condition &condition);
 
   virtual bool filter(const Record &rec) const;
@@ -81,6 +82,7 @@ private:
   ConDesc  right_;
   AttrType attr_type_ = UNDEFINED;
   CompOp   comp_op_ = NO_OP;
+  TupleSet *tuple_set_ = nullptr;
 };
 
 class CompositeConditionFilter : public ConditionFilter {

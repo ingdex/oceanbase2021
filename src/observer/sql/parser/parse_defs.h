@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <stddef.h>
 #include <stdbool.h>
+// #include "sql/executor/tuple.h"
 
 #define MAX_NUM 20
 #define MAX_REL_NAME 20
@@ -42,6 +43,8 @@ typedef enum {
   GROUP_BY,
   IS,
   IS_NOT,
+  IN,
+  NOT_IN,
   NO_OP
 } CompOp;
 
@@ -63,6 +66,8 @@ typedef struct _Value {
   void *data;     // value
 } Value;
 
+struct Selects_;
+
 typedef struct _Condition {
   int left_is_attr;    // TRUE if left-hand side is an attribute
                        // 1时，操作符左边是属性名，0时，是属性值
@@ -73,16 +78,21 @@ typedef struct _Condition {
                        // 1时，操作符右边是属性名，0时，是属性值
   RelAttr right_attr;  // right-hand side attribute if right_is_attr = TRUE 右边的属性
   Value right_value;   // right-hand side value if right_is_attr = FALSE
+  bool is_select;
+  struct Selects_ *selects;
+  void *tuple_set_;
 } Condition;
 
 // struct of select
-typedef struct {
+typedef struct Selects_{
   size_t    attr_num;               // Length of attrs in Select clause
   RelAttr   attributes[MAX_NUM];    // attrs in Select clause
   size_t    relation_num;           // Length of relations in Fro clause
   char *    relations[MAX_NUM];     // relations in From clause
   size_t    condition_num;          // Length of conditions in Where clause
   Condition conditions[MAX_NUM];    // conditions in Where clause
+  
+  // struct Selects_ *subselect[MAX_NUM];  
 } Selects;
 
 // struct of insert
@@ -205,13 +215,19 @@ void value_destroy(Value *value);
 
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
     int right_is_attr, RelAttr *right_attr, Value *right_value);
+void select_condition_init(Condition *condition, CompOp comp, 
+                    int left_is_attr, RelAttr *left_attr, Value *left_value,
+                    Selects *right_select);
 void condition_destroy(Condition *condition);
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
 void attr_info_destroy(AttrInfo *attr_info);
-
+void attr_list_append_attribute(RelAttr *attr_list, int list_length, RelAttr *attr);
+void selects_init_(Selects *selects);
 void selects_init(Selects *selects, ...);
+void selects_move__(Selects *des, Selects *src);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
+void selects_append_attributes(Selects *selects, RelAttr *rel_attr_list, int attr_list_length);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_destroy(Selects *selects);

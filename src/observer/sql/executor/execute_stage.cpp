@@ -1025,6 +1025,97 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   return rc;
 }
 
+RC do_select_by_selects(const char *db, Trx *trx, const Selects &selects, TupleSet &re_tuple_set) {
+  RC rc = RC::SUCCESS;
+  // 把所有的表和只跟这张表关联的condition都拿出来，生成最底层的select 执行节点
+  std::vector<SelectExeNode *> select_nodes;
+  std::unordered_map<std::string,int> table_map;
+  for (size_t i = 0; i < selects.relation_num; i++) {
+    const char *table_name = selects.relations[i];
+    Table * table = DefaultHandler::get_default().find_table(db, table_name);
+    if (nullptr == table) {
+      LOG_WARN("No such table [%s] in db [%s]", table_name, db);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+    SelectExeNode *select_node = new SelectExeNode;
+    rc = create_selection_executor(trx, selects, db, table_name, *select_node);
+    if (rc != RC::SUCCESS) {
+      delete select_node;
+      for (SelectExeNode *& tmp_node: select_nodes) {
+        delete tmp_node;
+      }
+      return rc;
+    }
+    select_nodes.push_back(select_node);
+    table_map[table_name] = selects.relation_num - 1 - i;
+  }
+  if (table_map.empty()) {
+    LOG_ERROR("No table given");
+    return RC::SQL_SYNTAX;
+  }
+
+  std::vector<TupleSet> tuple_sets;
+  for (std::vector<SelectExeNode *>::reverse_iterator iter=select_nodes.rbegin(); iter!=select_nodes.rend(); iter++) {
+    SelectExeNode *&node = *iter;
+    TupleSet tuple_set;
+    rc = node->execute(tuple_set);
+    if (rc != RC::SUCCESS) {
+      for (SelectExeNode *& tmp_node: select_nodes) {
+        delete tmp_node;
+      }
+      return rc;
+    } else {
+      tuple_sets.push_back(std::move(tuple_set));
+    }
+  }
+
+  std::stringstream ss;
+  if (tuple_sets.size() > 1) {
+    // 本次查询了多张表，需要做join操作
+    TupleSet join_tuple_set;
+    JoinSelectExeNode join_select_node;
+    rc = create_join_selection_executor(trx, selects, db, &tuple_sets, &table_map, join_select_node);
+    join_select_node.execute(join_tuple_set);
+    if (has_order_by(selects)) {
+      rc = join_tuple_set.sort(selects);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("sort error");
+        return RC::GENERIC_ERROR;
+      }
+    }
+    // re_tuple_set.sort(selects);
+    rc = projection(db, join_tuple_set, selects, re_tuple_set);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("projection error");
+      return RC::GENERIC_ERROR;
+    }
+    // re_tuple_set.print(ss, true);
+  } else {
+    // 当前只查询一张表，直接返回结果即可
+    // TupleSet re_tuple_set;
+    TupleSet &tuple_set = tuple_sets.front();
+    if (has_order_by(selects)) {
+      rc = tuple_set.sort(selects);
+      if (rc != RC::SUCCESS) {    
+        LOG_ERROR("sort error");
+        return RC::GENERIC_ERROR;
+      }
+    }
+    
+    rc = projection(db, tuple_set, selects, re_tuple_set);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("projection error");
+      return RC::GENERIC_ERROR;
+    }
+    // re_tuple_set.print(ss, false);
+  }
+
+  for (SelectExeNode *& tmp_node: select_nodes) {
+    delete tmp_node;
+  }
+  return rc;
+}
+
 bool match_table(const Selects &selects, const char *table_name_in_condition, const char *table_name_to_match) {
   if (table_name_in_condition != nullptr) {
     return 0 == strcmp(table_name_in_condition, table_name_to_match);
@@ -1042,6 +1133,36 @@ static RC schema_add_field(Table *table, const char *field_name, TupleSchema &sc
 
   schema.add_if_not_exists(field_meta->type(), table->name(), field_meta->name());
   return RC::SUCCESS;
+}
+
+bool has_no_sub_query(const Selects *selects){
+  if (selects->condition_num == 0) {
+    return true;
+  }
+  for (int i=0; i<selects->condition_num; i++) {
+    if (selects->conditions[i].is_select) {
+      return true;
+    }
+  }
+  return false;
+}
+
+RC select_condition_to_normal_condition(const char *db, Trx *trx, const Condition &select_condition, Condition &re_condition) {
+  Selects *selects = select_condition.selects;
+  TupleSet re_tuple_set;
+  RC rc;
+  if (has_no_sub_query(selects)) {
+    rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    re_condition = select_condition;
+    re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+    return RC::SUCCESS;
+    // re_condition
+  } else {
+
+  }
 }
 
 // 把所有的表和只跟这张表关联的condition都拿出来，生成最底层的select 执行节点
@@ -1064,18 +1185,40 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(selects, condition.right_attr.relation_name, table_name)) ||  // 左边是值，右边是属性名
         (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
             match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)
-            && condition.comp != ORDER_BY_ASC &&  condition.comp != ORDER_BY_DESC && condition.comp != GROUP_BY) // 左右都是属性名，并且表名都符合
+            && condition.comp != ORDER_BY_ASC &&  condition.comp != ORDER_BY_DESC && condition.comp != GROUP_BY) || // 左右都是属性名，并且表名都符合
+        (condition.is_select)
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
-      RC rc = condition_filter->init(*table, condition);
-      if (rc != RC::SUCCESS) {
-        delete condition_filter;
-        for (DefaultConditionFilter * &filter : condition_filters) {
-          delete filter;
+      if (condition.is_select) {
+        Condition normal_condition;
+        RC rc = select_condition_to_normal_condition(db, trx, condition, normal_condition);
+        if (rc != RC::SUCCESS) {
+          for (DefaultConditionFilter * &filter : condition_filters) {
+            delete filter;
+          }
+          return rc;
         }
-        return rc;
+        rc = condition_filter->init(*table, normal_condition);
+        if (rc != RC::SUCCESS) {
+          delete condition_filter;
+          for (DefaultConditionFilter * &filter : condition_filters) {
+            delete filter;
+          }
+          return rc;
+        }
+        condition_filters.push_back(condition_filter);
+      } else {
+        RC rc = condition_filter->init(*table, condition);
+        if (rc != RC::SUCCESS) {
+          delete condition_filter;
+          for (DefaultConditionFilter * &filter : condition_filters) {
+            delete filter;
+          }
+          return rc;
+        }
+        condition_filters.push_back(condition_filter);
       }
-      condition_filters.push_back(condition_filter);
+      
     }
   }
 
@@ -1149,7 +1292,7 @@ RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       
 
-      RC rc = condition_filter->init(left, right, type_left, condition.comp);
+      RC rc = condition_filter->init(left, right, type_left, condition.comp, nullptr);
       if (rc != RC::SUCCESS) {
         delete condition_filter;
         for (DefaultConditionFilter * &filter : condition_filters) {
