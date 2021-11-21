@@ -604,9 +604,9 @@ static const yytype_uint16 yyrline[] =
      864,   869,   871,   884,   894,   904,   914,   924,   937,   941,
      951,   961,   971,   981,   991,  1003,  1005,  1015,  1028,  1032,
     1042,  1056,  1060,  1066,  1090,  1113,  1136,  1161,  1185,  1209,
-    1231,  1243,  1255,  1267,  1279,  1292,  1305,  1322,  1338,  1365,
-    1390,  1418,  1419,  1420,  1421,  1422,  1423,  1424,  1425,  1429,
-    1452
+    1231,  1243,  1255,  1267,  1279,  1292,  1305,  1322,  1338,  1366,
+    1392,  1420,  1421,  1422,  1423,  1424,  1425,  1426,  1427,  1431,
+    1454
 };
 #endif
 
@@ -3177,16 +3177,17 @@ yyreduce:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
+			if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_EQUAL;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_EQUAL;
 			}
-			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length], 1, &left_attr, NULL, right_select);
+			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, right_select);
+			CONTEXT->comp_length--;
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			printf("CONTEXT->condition_list_stack_top: %d\n", CONTEXT->condition_list_stack_top);
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
@@ -3195,11 +3196,11 @@ yyreduce:
 			// printf("where sub end\n");
 
 		}
-#line 3199 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3200 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 139:
-#line 1366 "yacc_sql.y" /* yacc.c:1646  */
+#line 1367 "yacc_sql.y" /* yacc.c:1646  */
     {
 			// printf("where sub\n");
 			RelAttr left_attr;
@@ -3208,27 +3209,28 @@ yyreduce:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
+			if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_EQUAL;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_EQUAL;
 			}
 			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length], 1, &left_attr, NULL, right_select);
+			CONTEXT->comp_length--;
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
 									&condition);
 
 		}
-#line 3228 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3230 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 140:
-#line 1391 "yacc_sql.y" /* yacc.c:1646  */
+#line 1393 "yacc_sql.y" /* yacc.c:1646  */
     {
 			// printf("where sub\n");
 			// RelAttr left_attr;
@@ -3253,59 +3255,59 @@ yyreduce:
 									&condition);
 
 		}
-#line 3257 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3259 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 141:
-#line 1418 "yacc_sql.y" /* yacc.c:1646  */
+#line 1420 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = EQUAL_TO; }
-#line 3263 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3265 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 142:
-#line 1419 "yacc_sql.y" /* yacc.c:1646  */
+#line 1421 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = LESS_THAN; }
-#line 3269 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3271 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 143:
-#line 1420 "yacc_sql.y" /* yacc.c:1646  */
+#line 1422 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_THAN; }
-#line 3275 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3277 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 144:
-#line 1421 "yacc_sql.y" /* yacc.c:1646  */
+#line 1423 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = LESS_EQUAL; }
-#line 3281 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3283 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 145:
-#line 1422 "yacc_sql.y" /* yacc.c:1646  */
+#line 1424 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_EQUAL; }
-#line 3287 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3289 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 146:
-#line 1423 "yacc_sql.y" /* yacc.c:1646  */
+#line 1425 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = NOT_EQUAL; }
-#line 3293 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3295 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 147:
-#line 1424 "yacc_sql.y" /* yacc.c:1646  */
+#line 1426 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = IN; }
-#line 3299 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3301 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 148:
-#line 1425 "yacc_sql.y" /* yacc.c:1646  */
+#line 1427 "yacc_sql.y" /* yacc.c:1646  */
     { CONTEXT->comp[CONTEXT->comp_length++] = NOT_IN; }
-#line 3305 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3307 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 149:
-#line 1429 "yacc_sql.y" /* yacc.c:1646  */
+#line 1431 "yacc_sql.y" /* yacc.c:1646  */
     {
 		printf("sub select\n");
 		// selects_init_(&(CONTEXT->sub_selects[CONTEXT->sub_select_num]));
@@ -3326,20 +3328,20 @@ yyreduce:
 		CONTEXT->sub_select_num++;
 		// printf("subselect end\n");
 	}
-#line 3330 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3332 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
   case 150:
-#line 1453 "yacc_sql.y" /* yacc.c:1646  */
+#line 1455 "yacc_sql.y" /* yacc.c:1646  */
     {
 		  CONTEXT->ssql->flag = SCF_LOAD_DATA;
 			load_data_init(&CONTEXT->ssql->sstr.load_data, (yyvsp[-1].string), (yyvsp[-4].string));
 		}
-#line 3339 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3341 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
 
 
-#line 3343 "yacc_sql.tab.c" /* yacc.c:1646  */
+#line 3345 "yacc_sql.tab.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -3567,7 +3569,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 1458 "yacc_sql.y" /* yacc.c:1906  */
+#line 1460 "yacc_sql.y" /* yacc.c:1906  */
 
 //_____________________________________________________________________
 extern void scan_string(const char *str, yyscan_t scanner);

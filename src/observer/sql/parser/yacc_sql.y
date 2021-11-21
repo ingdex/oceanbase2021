@@ -1344,16 +1344,17 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
+			if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_EQUAL;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_EQUAL;
 			}
-			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length], 1, &left_attr, NULL, right_select);
+			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length-1], 1, &left_attr, NULL, right_select);
+			CONTEXT->comp_length--;
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			printf("CONTEXT->condition_list_stack_top: %d\n", CONTEXT->condition_list_stack_top);
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
@@ -1371,16 +1372,17 @@ condition:
 			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
 
 			Condition condition;
-			if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
-			} else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
-				CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
+			if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_THAN) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_THAN;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == LESS_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = GREAT_EQUAL;
+			} else if (CONTEXT->comp[(CONTEXT->comp_length)-1] == GREAT_EQUAL) {
+				CONTEXT->comp[CONTEXT->comp_length-1] = LESS_EQUAL;
 			}
 			select_condition_init(&condition, CONTEXT->comp[CONTEXT->comp_length], 1, &left_attr, NULL, right_select);
+			CONTEXT->comp_length--;
 			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
 									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
