@@ -532,6 +532,17 @@ void TupleRecordConverter::add_record(const char *record) {
     const FieldMeta *field_meta = table_meta.field(field.field_name());
     assert(field_meta != nullptr);
     switch (field_meta->type()) {
+      case TEXT: {
+        const char *s = record + field_meta->offset();
+        char * out_text;
+        std::string text_file_name = s; 
+        std::string line;
+        std::fstream fs;
+        fs.open(text_file_name, std::ios_base::in | std::ios_base::binary);
+        std::getline(fs, line);
+        const char * out = line.c_str();
+        tuple.add(out, strlen(out));
+      }
       case INTS: {
         int value = *(int*)(record + field_meta->offset());
         tuple.add(value);

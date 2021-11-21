@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "json/json.h"
 #include "common/log/log.h"
 #include "storage/trx/trx.h"
+#include "storage/common/meta_util.h"
 
 static const Json::StaticString FIELD_TABLE_NAME("table_name");
 static const Json::StaticString FIELD_FIELDS("fields");
@@ -80,6 +81,17 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
+    if(attr_info.type == CHARS && attr_info.length == 4096) {
+      size_t len = get_text_data_file_len(name, attr_info.name);
+      rc = fields_[i + sys_fields_.size()].init(attr_info.name, TEXT, field_offset, len, true);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
+        return rc;
+      }
+      field_offset += len;
+      continue;
+    }
+
     if (attr_info.type != IF_NULL) {
       rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
     } else {

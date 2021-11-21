@@ -267,6 +267,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
     }
   }
   break;
+  case TEXT:
   case CHARS:
   {
     if (value->type != CHARS) {

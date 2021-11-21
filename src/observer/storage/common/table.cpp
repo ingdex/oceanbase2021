@@ -456,7 +456,16 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if(field->type() == DATES){
+
+    if(field->type() == TEXT){
+      std::string text_file_name = text_data_file(name(),field->name());
+      std::fstream fs;
+      fs.open(text_file_name, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+      std::string input_text = (char *)value.data;
+      fs << input_text;
+      fs.close();
+      memcpy(record + field->offset(), text_file_name.c_str(), field->len()); 
+    } else if(field->type() == DATES){
       // int date;
       // RC rc = date2int(value, date);
       MyDate date((char *)value.data);
@@ -935,7 +944,7 @@ Index *Table::find_index(const char *index_name) const {
 }
 
 IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
-  return nullptr;
+  return nullptr;//mjy
   const ConDesc *field_cond_desc = nullptr;
   const ConDesc *value_cond_desc = nullptr;
   if (filter.left().is_attr && !filter.right().is_attr) {

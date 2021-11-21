@@ -57,7 +57,8 @@ typedef enum {
   DATES, DATES_NULLABLE,
   IF_NULL,
   IS_NULL,
-  NOT_NULL
+  NOT_NULL,
+  TEXT
    } AttrType;
 
 //属性值

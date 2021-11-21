@@ -275,6 +275,7 @@ int CompareKey(const char *pdata, const char *pkey,AttrType *attr_type,int *attr
           continue;
       }
         break;
+      case TEXT:
       case CHARS: {
         s1 = data;
         s2 = key;
@@ -1928,6 +1929,8 @@ RC BplusTreeScanner::open(CompOp comp_op,const char *value) {
     memcpy(value_copy, value, index_handler_.file_header_.total_attr_length);
   }
   value_ = value_copy; // free value_
+  // std::vector<int> attr_offsets;
+  // std::vector<int> attr_lengths;
   rc = index_handler_.find_first_index_satisfied(comp_op, value, &next_page_num_, &index_in_node_);
   if(rc != SUCCESS){
     if(rc == RC::RECORD_EOF){
@@ -2103,6 +2106,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
         is_null2 = *(int *)(value+my_attr_length-4);
       }
       break;
+    case TEXT:
     case CHARS:
       s1=key;
       s2=value;
@@ -2165,6 +2169,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
             }
             flag= 0 == float_compare(f1, f2);
             break;
+          case TEXT:
           case CHARS:
             flag=(strncmp(s1,s2,my_attr_length)==0);
             break;
@@ -2217,6 +2222,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
             flag=(f1<f2);
             equal= 0 == float_compare(f1, f2);
             break;
+          case TEXT:
           case CHARS:
             flag=(strncmp(s1,s2,my_attr_length)<0);
             equal=(strncmp(s1,s2,my_attr_length)==0);
@@ -2257,6 +2263,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
             flag=(f1>f2);
             equal= 0 == float_compare(f1, f2);
             break;
+          case TEXT:
           case CHARS:
             flag=(strncmp(s1,s2,my_attr_length)>0);
             equal=(strncmp(s1,s2,my_attr_length)==0);
@@ -2313,6 +2320,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
             flag=(f1<=f2);
             equal= 0 == float_compare(f1, f2);
             break;
+          case TEXT:
           case CHARS:
             flag=(strncmp(s1,s2,my_attr_length)<=0);
             equal=(strncmp(s1,s2,my_attr_length)==0);
@@ -2369,6 +2377,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
             flag=(f1>=f2);
             equal= 0 == float_compare(f1, f2);
             break;
+          case TEXT:
           case CHARS:
             flag=(strncmp(s1,s2,my_attr_length)>=0);
             equal=(strncmp(s1,s2,my_attr_length)==0);
@@ -2423,6 +2432,7 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
           case FLOATS:
             flag= 0 != float_compare(f1, f2);
             break;
+          case TEXT:
           case CHARS:
             flag=(strncmp(s1,s2,my_attr_length)!=0);
             break;
