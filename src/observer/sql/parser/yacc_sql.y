@@ -927,8 +927,8 @@ order_by:
 
 order_by_list:
 	/* empty */ {
-		CONTEXT->condition_list_stack_top++;
-		printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
+		// CONTEXT->condition_list_stack_top++;
+		// printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
 	}
     |COMMA ID order_by_list{
 			RelAttr left_attr;
@@ -1018,8 +1018,8 @@ group_by:
 
 group_by_list:
 	/* empty */ {
-		CONTEXT->condition_list_stack_top++;
-		printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
+		// CONTEXT->condition_list_stack_top++;
+		// printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
 	}
     |COMMA ID group_by_list{
 			RelAttr left_attr;

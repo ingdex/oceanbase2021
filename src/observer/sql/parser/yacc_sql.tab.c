@@ -2641,8 +2641,8 @@ yyreduce:
   case 108:
 #line 929 "yacc_sql.y" /* yacc.c:1646  */
     {
-		CONTEXT->condition_list_stack_top++;
-		printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
+		// CONTEXT->condition_list_stack_top++;
+		// printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
 	}
 #line 2648 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -2770,8 +2770,8 @@ yyreduce:
   case 118:
 #line 1020 "yacc_sql.y" /* yacc.c:1646  */
     {
-		CONTEXT->condition_list_stack_top++;
-		printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
+		// CONTEXT->condition_list_stack_top++;
+		// printf("condition_list: condition_list_stack_top++: %d\n", CONTEXT->condition_list_stack_top);
 	}
 #line 2777 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
