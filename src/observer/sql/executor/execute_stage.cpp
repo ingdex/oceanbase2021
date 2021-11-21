@@ -1202,6 +1202,80 @@ bool is_aggregation_schema_(const char *attribute_name, char *&aggregation_filed
   return false;
 }
 
+// RC select_condition_to_normal_condition(const char *db, Trx *trx, const Condition &select_condition, Condition &re_condition) {
+//   Selects *selects = select_condition.selects;
+//   Selects *selects_left = select_condition.selects_left;
+//   TupleSet re_tuple_set;
+//   RC rc;
+//   if (selects_left != nullptr) {
+//     Condition normal_condition_left;
+//     Condition normal_condition_right;
+//     if (has_no_sub_query(selects)) {
+
+//     }
+//   }
+//   if (has_no_sub_query(selects)) {
+//     if (selects_left != nullptr) {
+//       if (selects->attr_num != 1 || selects_left->attr_num != 1) {
+//         return RC::GENERIC_ERROR;
+//       }
+//       rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+//       if (rc != RC::SUCCESS) {
+//         return rc;
+//       }
+//       re_condition = select_condition;
+//       re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+//       rc = do_select_by_selects(db, trx, *selects_left, re_tuple_set);
+//       if (rc != RC::SUCCESS) {
+//         return rc;
+//       }
+//       // re_condition = select_condition;
+//       re_condition.tuple_set_left_ = new TupleSet(std::move(re_tuple_set));
+//     } else {
+//       if (selects->attr_num != 1) {
+//         return RC::GENERIC_ERROR;
+//       }
+//       rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+//       if (rc != RC::SUCCESS) {
+//         return rc;
+//       }
+//       re_condition = select_condition;
+//       re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+//       return RC::SUCCESS;
+//     }
+    
+//     // re_condition
+//   } else {
+//     char *aggregation_filed, *field_name;
+//     bool flag = is_aggregation_schema_(selects->attributes[0].attribute_name, aggregation_filed, field_name);
+//     if ((!flag && select_condition.comp != IN) &&
+//         (!flag && select_condition.comp != NOT_IN)) {
+//       return RC::GENERIC_ERROR;
+//     }
+//     for (int i=0; i<selects->condition_num; i++) {
+//       if (selects->conditions[i].is_select) {
+//         Condition normal_condition;
+//         RC rc = select_condition_to_normal_condition(db, trx, selects->conditions[i], normal_condition);
+        
+//         if (rc != RC::SUCCESS) {
+//           return RC::GENERIC_ERROR;
+//         }
+//         selects->conditions[i] = normal_condition;
+//       }
+//     }
+//     if (selects->attr_num != 1) {
+//       return RC::GENERIC_ERROR;
+//     }
+//     rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+//     if (rc != RC::SUCCESS) {
+//       return rc;
+//     }
+//     re_condition = select_condition;
+//     re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+//     return RC::SUCCESS;
+//   }
+// }
+
 RC select_condition_to_normal_condition(const char *db, Trx *trx, const Condition &select_condition, Condition &re_condition) {
   Selects *selects = select_condition.selects;
   Selects *selects_left = select_condition.selects_left;
@@ -1293,7 +1367,34 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         (condition.is_select)
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
-      if (condition.is_select) {
+      if (condition.is_select && condition.selects_left != nullptr) {
+        char *aggregation_filed, *field_name;
+        // condition.selects
+        bool flag1 = is_aggregation_schema_(condition.selects->attributes[0].attribute_name, aggregation_filed, field_name);
+        bool flag2 = is_aggregation_schema_(condition.selects_left->attributes[0].attribute_name, aggregation_filed, field_name);
+        // if ((!flag1 || !flag2) ||
+        //     (condition.selects->attr_num != 1 || condition.selects_left->attr_num != 1)) {
+        //       return RC::GENERIC_ERROR;
+        // }
+        Condition normal_condition;
+        // Condition normal_condition_;
+        RC rc = select_condition_to_normal_condition(db, trx, condition, normal_condition);
+        if (rc != RC::SUCCESS) {
+          for (DefaultConditionFilter * &filter : condition_filters) {
+            delete filter;
+          }
+          return rc;
+        }
+        rc = condition_filter->init(*table, normal_condition);
+        if (rc != RC::SUCCESS) {
+          delete condition_filter;
+          for (DefaultConditionFilter * &filter : condition_filters) {
+            delete filter;
+          }
+          return rc;
+        }
+        condition_filters.push_back(condition_filter);
+      } else if (condition.is_select) {
         char *aggregation_filed, *field_name;
         // condition.selects
         bool flag = is_aggregation_schema_(condition.selects->attributes[0].attribute_name, aggregation_filed, field_name);
