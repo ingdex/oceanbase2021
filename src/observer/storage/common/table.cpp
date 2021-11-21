@@ -768,7 +768,17 @@ public:
     // 更新record内容
     int attr_length = update_desc_->attr_length;
     int attr_offset = update_desc_->attr_offset;
-    memcpy(record->data + attr_offset, update_desc_->value, attr_length);
+    if(update_desc_->is_text == true) {
+      std::string text_file_name = (char *)(record->data + attr_offset);
+      std::fstream fs;
+      fs.open(text_file_name, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+      std::string input_text = (char *)(update_desc_->value);
+      fs << input_text;
+      fs.close();
+    }
+    else {
+      memcpy(record->data + attr_offset, update_desc_->value, attr_length);
+    }
     rc = table_.update_record(trx_, record);
     if (rc == RC::SUCCESS) {
       updated_count_++;

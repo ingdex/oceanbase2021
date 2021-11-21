@@ -202,6 +202,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     update_desc.is_attr = true;
+    update_desc.is_text = false;
     // update_desc.nullable = false;
     update_desc.attr_length = field_update->len();
     update_desc.attr_offset = field_update->offset();
@@ -216,6 +217,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
     }
     if (value->type == INTS) {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = field_update->len() + 4;
       update_desc.attr_offset = field_update->offset();
       update_desc.value = new char[field_update->len() + 4];
@@ -225,6 +227,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       // delete update_desc.value;
     } else {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = 4;
       update_desc.attr_offset = field_update->offset() + field_update->len();
       update_desc.value = &is_null;
@@ -238,6 +241,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     update_desc.is_attr = true;
+    update_desc.is_text = false;
     update_desc.attr_length = field_update->len();
     update_desc.attr_offset = field_update->offset();
     update_desc.value = value->data;
@@ -251,6 +255,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
     }
     if (value->type == FLOATS) {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = field_update->len() + 4;
       update_desc.attr_offset = field_update->offset();
       // update_desc.value = value->data;
@@ -261,6 +266,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       // delete update_desc.value;
     } else {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = 4;
       update_desc.attr_offset = field_update->offset() + field_update->len();
       update_desc.value = &is_null;
@@ -268,6 +274,18 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
   }
   break;
   case TEXT:
+  {
+    if (value->type != CHARS) {
+      LOG_WARN("Field type mismatch. %d.%d", field_update->type(), value->type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    update_desc.is_attr = true;
+    update_desc.is_text = true;
+    update_desc.attr_length = field_update->len();
+    update_desc.attr_offset = field_update->offset();
+    update_desc.value = value->data;
+  }
+  break;
   case CHARS:
   {
     if (value->type != CHARS) {
@@ -275,6 +293,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     update_desc.is_attr = true;
+    update_desc.is_text = false;
     update_desc.attr_length = field_update->len();
     update_desc.attr_offset = field_update->offset();
     update_desc.value = value->data;
@@ -288,6 +307,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
     }
     if (value->type == CHARS) {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = field_update->len() + 4;
       update_desc.attr_offset = field_update->offset();
       // update_desc.value = value->data;
@@ -298,6 +318,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       // delete update_desc.value;
     } else {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = 4;
       update_desc.attr_offset = field_update->offset() + field_update->len();
       update_desc.value = &is_null;
@@ -311,6 +332,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     update_desc.is_attr = true;
+    update_desc.is_text = false;
     update_desc.attr_length = field_update->len();
     update_desc.attr_offset = field_update->offset();
     MyDate date((char *)value->data);
@@ -327,6 +349,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
     }
     if (value->type == CHARS) {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = field_update->len() + 4;
       update_desc.attr_offset = field_update->offset();
       MyDate date((char *)value->data);
@@ -339,6 +362,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
       // delete update_desc.value;
     } else {
       update_desc.is_attr = true;
+      update_desc.is_text = false;
       update_desc.attr_length = 4;
       update_desc.attr_offset = field_update->offset() + field_update->len();
       update_desc.value = &is_null;
