@@ -1977,7 +1977,7 @@ yyreduce:
 			// 		CONTEXT->conditions, CONTEXT->condition_length);
 			int stack_top = CONTEXT->condition_list_stack_top;
 			printf("delete:stack_top:%d\n", stack_top);
-			deletes_set_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
+			deletes_set_conditions(&CONTEXT->ssql->sstr.deletion, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
 			// selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 			CONTEXT->condition_list_stack_top--;
 			CONTEXT->condition_length = 0;	
@@ -1990,8 +1990,8 @@ yyreduce:
     {
 			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
 			Value *value = &CONTEXT->values[0];
-			updates_init(&CONTEXT->ssql->sstr.update, (yyvsp[-6].string), (yyvsp[-4].string), value, 
-					CONTEXT->conditions, CONTEXT->condition_length);
+			// updates_init(&CONTEXT->ssql->sstr.update, $2, $4, value, 
+			// 		CONTEXT->conditions, CONTEXT->condition_length);
 			int stack_top = CONTEXT->condition_list_stack_top;
 			printf("update:stack_top:%d\n", stack_top);
 			updates_init(&CONTEXT->ssql->sstr.update, (yyvsp[-6].string), (yyvsp[-4].string), value, 
