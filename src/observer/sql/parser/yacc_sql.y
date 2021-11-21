@@ -467,6 +467,7 @@ select:				/*  select 语句的语法解析树*/
 			// CONTEXT->cur_select = &CONTEXT->ssql->sstr.selection;
 			int stack_top = CONTEXT->attr_list_stack_top;
 			printf("select: attr stack_top:%d\n", stack_top);
+			printf("CONTEXT->attr_list_length_stack[stack_top]:%d\n", CONTEXT->attr_list_length_stack[stack_top]);
 			selects_append_attributes(&CONTEXT->ssql->sstr.selection, CONTEXT->attr_list_stack[stack_top], CONTEXT->attr_list_length_stack[stack_top]);
 			CONTEXT->attr_list_stack_top--;
 			
@@ -557,10 +558,13 @@ select_attr:
 		printf("select *\n");
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*");
+			printf("CONTEXT->attr_list_stack_top: %d\n", CONTEXT->attr_list_stack_top);
+			printf("CONTEXT->attr_list_length_stack[CONTEXT->attr_list_stack_top]: %d\n", CONTEXT->attr_list_length_stack[CONTEXT->attr_list_stack_top]);
 			// selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 			attr_list_append_attribute(CONTEXT->attr_list_stack[CONTEXT->attr_list_stack_top], 
 									CONTEXT->attr_list_length_stack[CONTEXT->attr_list_stack_top]++,
 									&attr);
+			
 		// printf("select * end\n");
 		}
     | ID attr_list{
