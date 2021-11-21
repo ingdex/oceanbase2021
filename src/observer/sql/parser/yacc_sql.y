@@ -504,7 +504,7 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->comp_length=0;
 			printf("do select end\n");
 	}
-	| SELECT select_attr FROM ID join_list where SEMICOLON
+	| SELECT select_attr FROM ID join_list SEMICOLON
 	{
 		printf("do select end\n");
 		int stack_top = CONTEXT->attr_list_stack_top;
