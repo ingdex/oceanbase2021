@@ -84,6 +84,8 @@ void condition_init(Condition *condition, CompOp comp,
   condition->is_select = false;
     condition->selects = nullptr;
   condition->tuple_set_ = nullptr;
+  condition->tuple_set_left_ = nullptr;
+  condition->selects_left = nullptr;
 }
 
 void select_condition_init(Condition *condition, CompOp comp, 
@@ -101,6 +103,21 @@ void select_condition_init(Condition *condition, CompOp comp,
     condition->is_select = true;
     condition->selects = right_select;
   condition->tuple_set_ = nullptr;
+  condition->tuple_set_left_ = nullptr;
+  condition->selects_left = nullptr;
+}
+
+void select_condition_init_(Condition *condition, CompOp comp, 
+                    Selects *left_select,
+                    Selects *right_select) {
+  condition->comp = comp;
+  condition->left_is_attr = 0; 
+    condition->right_is_attr = 0;
+    condition->is_select = true;
+    condition->selects = right_select;
+  condition->tuple_set_ = nullptr;
+  condition->tuple_set_left_ = nullptr;
+  condition->selects_left = left_select;
 }
 
 void condition_destroy(Condition *condition) {

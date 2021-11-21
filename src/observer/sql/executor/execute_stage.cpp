@@ -1204,19 +1204,39 @@ bool is_aggregation_schema_(const char *attribute_name, char *&aggregation_filed
 
 RC select_condition_to_normal_condition(const char *db, Trx *trx, const Condition &select_condition, Condition &re_condition) {
   Selects *selects = select_condition.selects;
+  Selects *selects_left = select_condition.selects_left;
   TupleSet re_tuple_set;
   RC rc;
   if (has_no_sub_query(selects)) {
-    if (selects->attr_num != 1) {
-      return RC::GENERIC_ERROR;
+    if (selects_left != nullptr) {
+      if (selects->attr_num != 1 || selects_left->attr_num != 1) {
+        return RC::GENERIC_ERROR;
+      }
+      rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      re_condition = select_condition;
+      re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+      rc = do_select_by_selects(db, trx, *selects_left, re_tuple_set);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      // re_condition = select_condition;
+      re_condition.tuple_set_left_ = new TupleSet(std::move(re_tuple_set));
+    } else {
+      if (selects->attr_num != 1) {
+        return RC::GENERIC_ERROR;
+      }
+      rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      re_condition = select_condition;
+      re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
+      return RC::SUCCESS;
     }
-    rc = do_select_by_selects(db, trx, *selects, re_tuple_set);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    re_condition = select_condition;
-    re_condition.tuple_set_ = new TupleSet(std::move(re_tuple_set));
-    return RC::SUCCESS;
+    
     // re_condition
   } else {
     char *aggregation_filed, *field_name;
@@ -1383,7 +1403,7 @@ RC create_join_selection_executor(Trx *trx, const Selects &selects, const char *
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       
 
-      RC rc = condition_filter->init(left, right, type_left, condition.comp, nullptr);
+      RC rc = condition_filter->init(left, right, type_left, condition.comp, nullptr, nullptr);
       if (rc != RC::SUCCESS) {
         delete condition_filter;
         for (DefaultConditionFilter * &filter : condition_filters) {

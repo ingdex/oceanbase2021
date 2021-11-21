@@ -1363,6 +1363,31 @@ condition:
 									&condition);
 
 		}
+	| subselect comOp subselect 
+		{
+			// printf("where sub\n");
+			// RelAttr left_attr;
+			// relation_attr_init(&left_attr, $3, $5);
+			Selects *left_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 1];
+			Selects *right_select = &CONTEXT->sub_selects[CONTEXT->sub_select_num - 2];
+
+			Condition condition;
+			// if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_THAN) {
+			// 	CONTEXT->comp[CONTEXT->comp_length] = GREAT_THAN;
+			// } else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_THAN) {
+			// 	CONTEXT->comp[CONTEXT->comp_length] = LESS_THAN;
+			// } else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == LESS_EQUAL) {
+			// 	CONTEXT->comp[CONTEXT->comp_length] = GREAT_EQUAL;
+			// } else if (CONTEXT->comp[(CONTEXT->comp_length--)-1] == GREAT_EQUAL) {
+			// 	CONTEXT->comp[CONTEXT->comp_length] = LESS_EQUAL;
+			// }
+			select_condition_init_(&condition, CONTEXT->comp[(CONTEXT->comp_length--)-1], left_select, right_select);
+			// CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+			condition_list_append_condition(CONTEXT->condition_list_stack[CONTEXT->condition_list_stack_top], 
+									CONTEXT->condition_list_length_stack[CONTEXT->condition_list_stack_top]++,
+									&condition);
+
+		}
 	;
 
 comOp:
@@ -1384,6 +1409,7 @@ subselect:
 		// CONTEXT->cur_select = &(CONTEXT->sub_selects[CONTEXT->sub_select_num]);
 		int stack_top = CONTEXT->attr_list_stack_top;
 		selects_append_attributes(&CONTEXT->sub_selects[CONTEXT->sub_select_num], CONTEXT->attr_list_stack[stack_top], CONTEXT->attr_list_length_stack[stack_top]);
+		CONTEXT->attr_list_length_stack[stack_top] = 0;
 		CONTEXT->attr_list_stack_top--;
 		// CONTEXT->attr_list_length = 0;
 		

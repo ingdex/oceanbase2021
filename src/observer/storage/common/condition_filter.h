@@ -58,7 +58,7 @@ public:
   DefaultConditionFilter();
   virtual ~DefaultConditionFilter();
 
-  RC init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op, TupleSet *tuple_set);
+  RC init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op, TupleSet *tuple_set, TupleSet *tuple_set_left);
   RC init(Table &table, const Condition &condition);
 
   virtual bool filter(const Record &rec) const;
@@ -83,6 +83,7 @@ private:
   AttrType attr_type_ = UNDEFINED;
   CompOp   comp_op_ = NO_OP;
   TupleSet *tuple_set_ = nullptr;
+  TupleSet *tuple_set_left_ = nullptr;
 };
 
 class CompositeConditionFilter : public ConditionFilter {

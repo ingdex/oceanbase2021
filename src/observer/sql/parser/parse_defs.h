@@ -81,6 +81,8 @@ typedef struct _Condition {
   bool is_select;
   struct Selects_ *selects;
   void *tuple_set_;
+  struct Selects_ *selects_left;
+  void *tuple_set_left_;
 } Condition;
 
 // struct of select
@@ -218,6 +220,9 @@ void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr
     int right_is_attr, RelAttr *right_attr, Value *right_value);
 void select_condition_init(Condition *condition, CompOp comp, 
                     int left_is_attr, RelAttr *left_attr, Value *left_value,
+                    Selects *right_select);
+void select_condition_init_(Condition *condition, CompOp comp, 
+                    Selects *left_select,
                     Selects *right_select);
 void condition_destroy(Condition *condition);
 

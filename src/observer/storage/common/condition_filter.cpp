@@ -39,7 +39,7 @@ DefaultConditionFilter::DefaultConditionFilter()
 DefaultConditionFilter::~DefaultConditionFilter()
 {}
 
-RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op, TupleSet *tuple_set)
+RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op, TupleSet *tuple_set, TupleSet *tuple_set_left)
 {
   if (attr_type < CHARS || attr_type > NOT_NULL) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
@@ -56,6 +56,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
   attr_type_ = attr_type;
   comp_op_ = comp_op;
   tuple_set_ = tuple_set;
+  tuple_set_left_ = tuple_set_left;
   return RC::SUCCESS;
 }
 
@@ -82,7 +83,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 
     type_left = field_left->type();
     left.type = type_left;
-  } else {
+  } else if (condition.tuple_set_left_ == nullptr) {
     left.is_attr = false;
     left.value = condition.left_value.data;  // 校验type 或者转换类型
     type_left = condition.left_value.type;
@@ -131,8 +132,12 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   // }
   if (condition.is_select) {
     TupleSet *tuple_set = (TupleSet *)condition.tuple_set_;
-    if (tuple_set->size() == 0) {
-      return init(left, right, type_left, condition.comp, (TupleSet *)condition.tuple_set_);
+    TupleSet *tuple_set_left = (TupleSet *)condition.tuple_set_left_;
+    if (tuple_set->size() == 0 || (tuple_set_left_ != nullptr && tuple_set_left->size() == 0)) {
+      return init(left, right, type_left, condition.comp, (TupleSet *)condition.tuple_set_, (TupleSet *)condition.tuple_set_left_);
+    }
+    if (tuple_set_left_ != nullptr) {
+      type_left = tuple_set_left_->get(0).get(0).type();
     }
     type_right = tuple_set->get(0).get(0).type();
     if (type_left == CHARS) {
@@ -178,7 +183,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
         }
       }
     }
-    return init(left, right, type_left, condition.comp, (TupleSet *)condition.tuple_set_);
+    return init(left, right, type_left, condition.comp, (TupleSet *)condition.tuple_set_, (TupleSet *)condition.tuple_set_left_);
   }
 
 
@@ -228,7 +233,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   }
 
 
-  return init(left, right, type_left, condition.comp, nullptr);
+  return init(left, right, type_left, condition.comp, nullptr, nullptr);
 }
 
 bool DefaultConditionFilter::filter(const Record &rec) const
@@ -263,6 +268,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           if (comp_op_ == NOT_IN) {
             return true;
           }
+          return false;
+        }
+        if (tuple_set_left_ != nullptr) {
           return false;
         }
         int left = *(int *)left_value;
@@ -322,6 +330,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           if (comp_op_ == NOT_IN) {
             return true;
           }
+          return false;
+        }
+        if (tuple_set_left_ != nullptr) {
           return false;
         }
         int left = *(int *)left_value;
@@ -418,6 +429,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           }
           return false;
         }
+        if (tuple_set_left_ != nullptr) {
+          return false;
+        }
         int left = *(int *)left_value;
         // int right = *(int *)right_value;
         const TupleValue &tuple_value = tuple_set_->get(0).get(0);
@@ -495,6 +509,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           }
           return false;
         }
+        if (tuple_set_left_ != nullptr) {
+          return false;
+        }
         int left = *(int *)left_value;
         // int right = *(int *)right_value;
         const TupleValue &tuple_value = tuple_set_->get(0).get(0);
@@ -561,6 +578,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           if (comp_op_ == NOT_IN) {
             return true;
           }
+          return false;
+        }
+        if (tuple_set_left_ != nullptr) {
           return false;
         }
         float left = *(float *)left_value;
@@ -636,6 +656,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           if (comp_op_ == NOT_IN) {
             return true;
           }
+          return false;
+        }
+        if (tuple_set_left_ != nullptr) {
           return false;
         }
         float left = *(float *)left_value;
