@@ -517,7 +517,8 @@ select:				/*  select 语句的语法解析树*/
 		printf("select:stack_top:%d\n", stack_top);
 		selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
 		CONTEXT->condition_list_stack_top--;
-		if (CONTEXT->condition_list_stack_top >= 0) {
+		stack_top--;
+		if (stack_top >= 0) {
 			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
 			CONTEXT->condition_list_stack_top--;
 		}
