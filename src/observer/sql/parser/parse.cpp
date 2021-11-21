@@ -190,7 +190,7 @@ void selects_append_attributes(Selects *selects, RelAttr *rel_attr_list, int att
   //   printf("%s %s\n", rel_attr_list->relation_name, rel_attr_list->attribute_name);
   // }
 
-  for (int i=attr_list_length-1; i>=0; i--) {
+  for (int i=0; i<attr_list_length-1; i++) {
     selects->attributes[selects->attr_num++] = rel_attr_list[i];
   }
 }
