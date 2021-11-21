@@ -504,7 +504,7 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->comp_length=0;
 			printf("do select end\n");
 	}
-	| SELECT select_attr FROM ID join_list SEMICOLON
+	| SELECT select_attr FROM ID join_list where SEMICOLON
 	{
 		printf("do select end\n");
 		int stack_top = CONTEXT->attr_list_stack_top;
@@ -517,6 +517,11 @@ select:				/*  select 语句的语法解析树*/
 		printf("select:stack_top:%d\n", stack_top);
 		selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
 		CONTEXT->condition_list_stack_top--;
+		if (CONTEXT->condition_list_stack_top >= 0) {
+			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
+			CONTEXT->condition_list_stack_top--;
+		}
+		
 		// selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 		CONTEXT->ssql->flag=SCF_SELECT;//"select";
 		// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
@@ -547,9 +552,11 @@ select:				/*  select 语句的语法解析树*/
 
 join_list:
 	INNER JOIN ID ON condition condition_list {
+		// CONTEXT->condition_list_stack_top--;
 		selects_append_relation(&CONTEXT->ssql->sstr.selection, $3);
 	}
 	| INNER JOIN ID ON condition condition_list join_list {
+		// CONTEXT->condition_list_stack_top--;
 		selects_append_relation(&CONTEXT->ssql->sstr.selection, $3);
 	};
 
