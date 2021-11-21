@@ -431,8 +431,13 @@ delete:		/*  delete 语句的语法解析树*/
 		{
 			CONTEXT->ssql->flag = SCF_DELETE;//"delete";
 			deletes_init_relation(&CONTEXT->ssql->sstr.deletion, $3);
-			deletes_set_conditions(&CONTEXT->ssql->sstr.deletion, 
-					CONTEXT->conditions, CONTEXT->condition_length);
+			// deletes_set_conditions(&CONTEXT->ssql->sstr.deletion, 
+			// 		CONTEXT->conditions, CONTEXT->condition_length);
+			int stack_top = CONTEXT->condition_list_stack_top;
+			printf("delete:stack_top:%d\n", stack_top);
+			deletes_set_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
+			// selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
+			CONTEXT->condition_list_stack_top--;
 			CONTEXT->condition_length = 0;	
     }
     ;
@@ -443,6 +448,13 @@ update:			/*  update 语句的语法解析树*/
 			Value *value = &CONTEXT->values[0];
 			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, value, 
 					CONTEXT->conditions, CONTEXT->condition_length);
+			int stack_top = CONTEXT->condition_list_stack_top;
+			printf("update:stack_top:%d\n", stack_top);
+			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, value, 
+					CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
+			// deletes_set_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->condition_list_stack[stack_top], CONTEXT->condition_list_length_stack[stack_top]);
+			// selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
+			CONTEXT->condition_list_stack_top--;
 			CONTEXT->condition_length = 0;
 		}
     ;
