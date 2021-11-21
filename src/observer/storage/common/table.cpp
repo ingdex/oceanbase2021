@@ -462,6 +462,11 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
       std::fstream fs;
       fs.open(text_file_name, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
       std::string input_text = (char *)value.data;
+      if(input_text.length() > 4096)
+      {
+        std::string sub = input_text.substr(0,4096);
+        input_text = sub;
+      }
       fs << input_text;
       fs.close();
       memcpy(record + field->offset(), text_file_name.c_str(), field->len()); 
@@ -773,6 +778,11 @@ public:
       std::fstream fs;
       fs.open(text_file_name, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
       std::string input_text = (char *)(update_desc_->value);
+      if(input_text.length() > 4096)
+      {
+        std::string sub = input_text.substr(0,4096);
+        input_text = sub;
+      }
       fs << input_text;
       fs.close();
     }
